@@ -40,8 +40,7 @@ definition = Group(
     + NAME
     + ZeroOrMore(implicit_param)
     + ZeroOrMore(explicit_param)
-    + COLON
-    + expr
+    + Opt(COLON + expr)
     + ASSIGN
     + oneline(expr)
 )
