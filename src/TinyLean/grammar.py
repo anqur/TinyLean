@@ -7,24 +7,24 @@ from pyparsing import (
     ParserElement,
     Forward,
     ZeroOrMore,
-    Optional,
-    DelimitedList,
+    White,
+    Opt,
 )
 
 ParserElement.enable_packrat()
-ParserElement.set_default_whitespace_chars(" \t\r")
 
 comment = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 DEF, TYPE = map(lambda w: Keyword(w).suppress(), "def Type".split())
 
-NEWLINE = Suppress("\n")
 ASSIGN = Suppress(":=")
 
 LPAREN, RPAREN, LBRACE, RBRACE, COLON = map(Suppress, "(){}:")
 
 NAME = unicode_set.identifier()
+NEWLINE = Opt(Suppress(White(" \t\r"))) + Suppress("\n")
 
+oneline = lambda e: (e + NEWLINE).leave_whitespace()
 parenthesized = lambda e: LPAREN + e + RPAREN
 braced = lambda e: LBRACE + e + RBRACE
 
@@ -43,13 +43,7 @@ definition = Group(
     + COLON
     + expr
     + ASSIGN
-    + Optional(NEWLINE)
-    + expr
-    + NEWLINE
+    + oneline(expr)
 )
 
-program = (
-    ZeroOrMore(NEWLINE)
-    + Optional(DelimitedList(definition, ZeroOrMore(NEWLINE)))
-    + ZeroOrMore(NEWLINE)
-).ignore(comment)
+program = ZeroOrMore(definition).ignore(comment)
