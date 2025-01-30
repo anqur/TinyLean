@@ -1,9 +1,17 @@
-import unittest
+from unittest import TestCase
 
 from TinyLean.grammar import definition, program
+from TinyLean import Ident
 
 
-class TestGrammar(unittest.TestCase):
+class TestIdent(TestCase):
+    def test_fresh(self):
+        i = Ident.fresh("i")
+        j = Ident.fresh("j")
+        self.assertLess(i.id, j.id)
+
+
+class TestGrammar(TestCase):
     def test_parse_oneline_definition(self):
         definition.parse_string("def f (a : Type) : Type := a\n", parse_all=True)
 
