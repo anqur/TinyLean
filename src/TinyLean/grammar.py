@@ -17,7 +17,7 @@ comment = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 DEF, TYPE = map(lambda w: Keyword(w).suppress(), "def Type".split())
 
-ASSIGN = Suppress(":=")
+ASSIGN, ARROW = map(lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →->".split())
 
 LPAREN, RPAREN, LBRACE, RBRACE, COLON = map(Suppress, "(){}:")
 
@@ -45,4 +45,4 @@ definition = Group(
     + oneline(expr)
 )
 
-program = ZeroOrMore(definition).ignore(comment)
+program = ZeroOrMore(definition).ignore(comment).set_parse_action()

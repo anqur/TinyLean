@@ -13,7 +13,7 @@ class TestIdent(TestCase):
 
 class TestGrammar(TestCase):
     def test_parse_oneline_definition(self):
-        definition.parse_string("def f (a : Type) : Type := a\n", parse_all=True)
+        definition.parse_string("def f (a : Type) : Type ≔ a\n", parse_all=True)
 
     def test_parse_oneline_definition_white(self):
         definition.parse_string(" def t := Type \n ", parse_all=True)
