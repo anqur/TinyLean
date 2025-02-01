@@ -4,9 +4,13 @@ ParserElement.enable_packrat()
 
 comment = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
-DEF, TYPE = map(lambda w: Keyword(w).suppress(), "def Type".split())
+DEF, INDUCTIVE, TYPE = map(
+    lambda w: Keyword(w).suppress(), "def inductive Type".split()
+)
 
-ASSIGN, ARROW = map(lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →->".split())
+ASSIGN, ARROW, FUN, TO = map(
+    lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split()
+)
 
 LPAREN, RPAREN, LBRACE, RBRACE, COLON = map(Suppress, "(){}:")
 
