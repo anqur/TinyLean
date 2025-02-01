@@ -1,5 +1,7 @@
-from typing import ClassVar
+from typing import ClassVar, cast, Any
 from dataclasses import dataclass
+
+trustme = lambda t: cast(Any, t)
 
 
 @dataclass(frozen=True)
