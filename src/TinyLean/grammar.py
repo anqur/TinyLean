@@ -22,11 +22,17 @@ parenthesized = lambda e: LPAREN + e + RPAREN
 braced = lambda e: LBRACE + e + RBRACE
 
 expr = Forward()
-expr << Group(TYPE | NAME | parenthesized(expr))
+paren_expr = parenthesized(expr)
 
 param = Group(NAME + COLON + expr)
 implicit_param = braced(param)
 explicit_param = parenthesized(param)
+
+function_type = ZeroOrMore(implicit_param) + OneOrMore(explicit_param) + ARROW + expr
+function = FUN + NAME + TO + expr
+call = (NAME | paren_expr) + expr
+
+expr << Group(function_type | function | TYPE | oneline(call) | NAME | paren_expr)
 
 definition = Group(
     DEF

@@ -1,13 +1,15 @@
 from dataclasses import dataclass
+from functools import reduce
+from typing import cast
 
-from . import Ident, Param
+from . import Ident, Param, Declaration
 
 
-@dataclass
+@dataclass(frozen=True)
 class IR: ...
 
 
-@dataclass
+@dataclass(frozen=True)
 class Reference(IR):
     v: Ident
 
@@ -15,13 +17,13 @@ class Reference(IR):
         return str(self.v)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Type(IR):
     def __str__(self):
         return "Type"
 
 
-@dataclass
+@dataclass(frozen=True)
 class FunctionType(IR):
     param_type: Param[IR]
     return_type: IR
@@ -30,7 +32,7 @@ class FunctionType(IR):
         return f"{self.param_type} → {self.return_type}"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Function(IR):
     param: Param[IR]
     body: IR
@@ -39,10 +41,18 @@ class Function(IR):
         return f"λ {self.param} ↦ {self.body}"
 
 
-@dataclass
+@dataclass(frozen=True)
 class Call(IR):
     callee: IR
     arg: IR
 
     def __str__(self):
         return f"({self.callee} {self.arg})"
+
+
+def signature_type(decl: Declaration[IR]) -> IR:
+    return reduce(cast(any, FunctionType), reversed(decl.param_types), decl.return_type)
+
+
+def definition_value(decl: Declaration[IR]) -> IR:
+    return reduce(cast(any, Function), reversed(decl.param_types), decl.definition)

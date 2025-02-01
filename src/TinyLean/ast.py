@@ -1,61 +1,52 @@
 from dataclasses import dataclass, field
 
-from . import Ident, Param
+from . import Ident, Param, Declaration
 
 
-@dataclass
+@dataclass(frozen=True)
 class Node:
     loc: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class Type(Node): ...
 
 
-@dataclass
+@dataclass(frozen=True)
 class Reference(Node):
     name: Ident
 
 
-@dataclass
+@dataclass(frozen=True)
 class FunctionType(Node):
     param_type: Param[Node]
     return_type: Node
 
 
-@dataclass
+@dataclass(frozen=True)
 class Function(Node):
     param_name: Ident
     body: Node
 
 
-@dataclass
+@dataclass(frozen=True)
 class Call(Node):
     callee: Node
     arg: Node
 
 
-@dataclass
-class Declaration:
-    loc: int
-    name: Ident
-    param_types: list[Param[Node]]
-    return_type: Node
-    definition: Node
-
-
 class NameResolveError(Exception): ...
 
 
-@dataclass
+@dataclass(frozen=True)
 class NameResolver:
     locals: dict[str, Ident] = field(default_factory=dict)
     globals: set[str] = field(default_factory=set)
 
-    def resolve(self, decls: list[Declaration]):
+    def resolve(self, decls: list[Declaration[Node]]):
         return [self._resolve_def(d) for d in decls]
 
-    def _resolve_def(self, d: Declaration):
+    def _resolve_def(self, d: Declaration[Node]):
         params = []
         for name, ty in d.param_types:
             self._insert_local(name)

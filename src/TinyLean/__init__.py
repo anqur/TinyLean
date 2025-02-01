@@ -2,7 +2,7 @@ from typing import ClassVar
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(frozen=True)
 class Ident:
     text: str = ""
     id: int = 0
@@ -21,13 +21,22 @@ class Ident:
         return Ident(text, cls._NEXT_ID)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Param[T]:
     name: Ident
     type: T
 
     def __str__(self):
         return f"({self.name}: {self.type})"
+
+
+@dataclass(frozen=True)
+class Declaration[T]:
+    loc: int
+    name: Ident
+    param_types: list[Param[T]]
+    return_type: T
+    definition: T
 
 
 def main():
