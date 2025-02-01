@@ -21,5 +21,14 @@ class Ident:
         return Ident(text, cls._NEXT_ID)
 
 
+@dataclass
+class Param[T]:
+    name: Ident
+    type: T
+
+    def __str__(self):
+        return f"({self.name}: {self.type})"
+
+
 def main():
     print("Hello, TinyLean!")

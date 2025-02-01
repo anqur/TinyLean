@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from . import Ident
+from . import Ident, Param
 
 
 @dataclass
@@ -19,7 +19,7 @@ class Reference(Node):
 
 @dataclass
 class FunctionType(Node):
-    param_type: tuple[Ident, Node]
+    param_type: Param[Node]
     return_type: Node
 
 
@@ -39,7 +39,7 @@ class Call(Node):
 class Declaration:
     loc: int
     name: Ident
-    param_types: list[tuple[Ident, Node]]
+    param_types: list[Param[Node]]
     return_type: Node
     definition: Node
 
@@ -59,7 +59,7 @@ class NameResolver:
         params = []
         for name, ty in d.param_types:
             self._insert_local(name)
-            params.append((name, self._resolve_expr(ty)))
+            params.append(Param(name, self._resolve_expr(ty)))
         ret = self._resolve_expr(d.return_type)
         body = self._resolve_expr(d.definition)
 
@@ -81,7 +81,7 @@ class NameResolver:
             case FunctionType(loc, p, body):
                 typ = self._resolve_expr(p.type)
                 b = self._guard_local(p.name, body)
-                return FunctionType(loc, (p.name, typ), b)
+                return FunctionType(loc, Param(p.name, typ), b)
             case Function(loc, v, body):
                 b = self._guard_local(v, body)
                 return Function(loc, v, b)

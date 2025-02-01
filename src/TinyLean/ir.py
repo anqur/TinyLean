@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from . import Ident
+from . import Ident, Param
 
 
 @dataclass
@@ -23,7 +23,7 @@ class Type(IR):
 
 @dataclass
 class FunctionType(IR):
-    param_type: tuple[Ident, IR]
+    param_type: Param[IR]
     return_type: IR
 
     def __str__(self):
@@ -32,7 +32,7 @@ class FunctionType(IR):
 
 @dataclass
 class Function(IR):
-    param: tuple[Ident, IR]
+    param: Param[IR]
     body: IR
 
     def __str__(self):
