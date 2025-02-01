@@ -12,6 +12,9 @@ class Ident:
     def __str__(self):
         return self.text
 
+    def is_unbound(self):
+        return self.text == "_"
+
     @classmethod
     def fresh(cls, text: str):
         cls._NEXT_ID += 1

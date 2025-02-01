@@ -1,15 +1,4 @@
-from pyparsing import (
-    Regex,
-    Keyword,
-    Group,
-    unicode_set,
-    Suppress,
-    ParserElement,
-    Forward,
-    ZeroOrMore,
-    White,
-    Opt,
-)
+from pyparsing import *
 
 ParserElement.enable_packrat()
 
