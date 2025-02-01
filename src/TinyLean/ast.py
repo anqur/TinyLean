@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from . import Ident, Param, Declaration, ir
+from . import Ident, Param, Declaration, ir, grammar
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,19 @@ class Function(Node):
 class Call(Node):
     callee: Node
     arg: Node
+
+
+grammar.NAME.set_parse_action(lambda s: Ident(s))
+grammar.param.set_parse_action(lambda s, l, r: Param(r[0], r[1]))
+grammar.function_type.set_parse_action(lambda s, l, r: FunctionType(l, r[0], r[1]))
+grammar.paren_expr.set_parse_action(lambda s, l, r: r[0])
+grammar.function.set_parse_action(lambda s, l, r: Function(l, r[0], r[1]))
+grammar.TYPE.set_parse_action(lambda s, l: Type(l))
+grammar.call.set_parse_action(lambda s, l, r: Call(l, r[0], r[1]))
+grammar.REFERENCE.set_parse_action(lambda s, l, r: Reference(l, r[0]))
+grammar.definition.set_parse_action(
+    lambda s, l, r: Declaration(l, r[0], r[1], r[2], r[3])
+)
 
 
 class NameResolveError(Exception): ...

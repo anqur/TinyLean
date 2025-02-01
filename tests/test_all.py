@@ -17,7 +17,7 @@ class TestGrammar(TestCase):
         parse(definition, "def f (a : Type) : Type ≔ a\n")
 
     def test_parse_oneline_definition_white(self):
-        parse(definition, " def t := Type \n ")
+        parse(definition, " def t : Type := Type \n ")
 
     def test_parse_multiline_definition(self):
         parse(

@@ -31,16 +31,16 @@ function_type = (implicit_param | explicit_param) + ARROW + expr
 paren_expr = parenthesized(expr)
 function = FUN + NAME + TO + expr
 call = oneline((NAME | paren_expr) + expr)
-REF = NAME.copy()
+REFERENCE = NAME.copy()
 
-expr << Group(function_type | paren_expr | function | TYPE | call | REF)
+expr << Group(function_type | paren_expr | function | TYPE | call | REFERENCE)
 
 definition = Group(
     DEF
     + NAME
-    + ZeroOrMore(implicit_param)
-    + ZeroOrMore(explicit_param)
-    + Opt(COLON + expr)
+    + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
+    + COLON  # TODO: optional return type
+    + expr
     + ASSIGN
     + oneline(expr)
 )
