@@ -101,7 +101,10 @@ class NameResolver:
         return old
 
 
-class TypeCheckError(Exception): ...
+class TypeAssertionError(Exception): ...
+
+
+class TypeMismatchError(Exception): ...
 
 
 @dataclass(frozen=True)
@@ -136,14 +139,14 @@ class TypeChecker:
                             param, self._check_with(param, body, body_type)
                         )
                     case got:
-                        raise TypeCheckError("expected function type", loc, got)
+                        raise TypeAssertionError("expected function type", loc, got)
             case _:
                 val, got = self._infer(n)
                 got = ir.inline(got)
                 want = ir.inline(typ)
                 if ir.Converter(self.globals).check(got, want):
                     return val
-                raise TypeCheckError("type mismatch", n.loc, got, want)
+                raise TypeMismatchError("type mismatch", n.loc, got, want)
 
     def _infer(self, n: Node) -> tuple[ir.IR, ir.IR]:
         match n:
@@ -171,7 +174,7 @@ class TypeChecker:
                         val = ir.Inliner().apply(f_tm, x_tm)
                         return val, typ
                     case got:
-                        raise TypeCheckError("expected function type", f.loc, got)
+                        raise TypeAssertionError("expected function type", f.loc, got)
             case Type(_):
                 return ir.Type(), ir.Type()
         raise AssertionError("impossible")
