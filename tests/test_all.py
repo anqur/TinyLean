@@ -6,20 +6,22 @@ from TinyLean import Ident
 
 class TestIdent(TestCase):
     def test_fresh(self):
-        i = Ident.fresh("i")
-        j = Ident.fresh("j")
-        self.assertLess(i.id, j.id)
+        self.assertLess(Ident.fresh("i").id, Ident.fresh("j").id)
+
+
+parse = lambda g, text: g.parse_string(text, parse_all=True)
 
 
 class TestGrammar(TestCase):
     def test_parse_oneline_definition(self):
-        definition.parse_string("def f (a : Type) : Type ≔ a\n", parse_all=True)
+        parse(definition, "def f (a : Type) : Type ≔ a\n")
 
     def test_parse_oneline_definition_white(self):
-        definition.parse_string(" def t := Type \n ", parse_all=True)
+        parse(definition, " def t := Type \n ")
 
     def test_parse_multiline_definition(self):
-        program.parse_string(
+        parse(
+            program,
             """
             /-- foo -/
             def foo
@@ -29,14 +31,14 @@ class TestGrammar(TestCase):
                 :=
                 b
             """,
-            parse_all=True,
         )
 
     def test_parse_program_empty(self):
-        program.parse_string("", parse_all=True)
+        parse(program, "")
 
     def test_parse_program_definitions(self):
-        program.parse_string(
+        parse(
+            program,
             """
             def f1 : Type := Type
             def f2 (a : Type) : Type :=
@@ -50,5 +52,4 @@ class TestGrammar(TestCase):
 
                 a
             """,
-            parse_all=True,
         )
