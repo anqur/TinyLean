@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from . import Ident, Param, Declaration
+from . import Ident, Param, Declaration, ir
 
 
 @dataclass(frozen=True)
@@ -99,3 +99,97 @@ class NameResolver:
             pass
         self.locals[v.text] = v
         return old
+
+
+class TypeCheckError(Exception): ...
+
+
+@dataclass(frozen=True)
+class TypeChecker:
+    globals: dict[int, Declaration[ir.IR]] = field(default_factory=dict)
+    locals: dict[int, ir.IR] = field(default_factory=dict)
+
+    def run(self, ds: list[Declaration[Node]]):
+        return [self._run(d) for d in ds]
+
+    def _run(self, d: Declaration[Node]) -> Declaration[ir.IR]:
+        self.locals.clear()
+        params = []
+        for p in d.param_types:
+            typ = self._check(p.type, ir.Type())
+            params.append(Param(p.name, typ))
+            self.locals[p.name.id] = typ
+        ret = self._check(d.return_type, ir.Type())
+        body = self._check(d.definition, ret)
+        checked_def = Declaration(d.loc, d.name, params, ret, body)
+        self.globals[d.name.id] = checked_def
+        return checked_def
+
+    def _check(self, n: Node, typ: ir.IR) -> ir.IR:
+        match n:
+            case Function(loc, v, body):
+                match ir.inline(typ):
+                    case ir.FunctionType(p, b):
+                        body_type = ir.Inliner().run_with(p.name, ir.Reference(v), b)
+                        param = Param(v, p.type)
+                        return ir.Function(
+                            param, self._check_with(param, body, body_type)
+                        )
+                    case got:
+                        raise TypeCheckError("expected function type", loc, got)
+            case _:
+                val, got = self._infer(n)
+                got = ir.inline(got)
+                want = ir.inline(typ)
+                if ir.Converter(self.globals).check(got, want):
+                    return val
+                raise TypeCheckError("type mismatch", n.loc, got, want)
+
+    def _infer(self, n: Node) -> tuple[ir.IR, ir.IR]:
+        match n:
+            case Reference(_, v):
+                try:
+                    return ir.Reference(v), self.locals[v.id]
+                except KeyError:
+                    pass
+                try:
+                    d = self.globals[v.id]
+                    return ir.definition_value(d), ir.signature_type(d)
+                except KeyError:
+                    raise AssertionError("impossible")
+            case FunctionType(_, p, b):
+                p_typ = self._check(p.type, ir.Type())
+                inferred_p = Param(p.name, p_typ)
+                b_val = self._check_with(inferred_p, b, ir.Type())
+                return ir.FunctionType(inferred_p, b_val), ir.Type()
+            case Call(_, f, x):
+                f_tm, f_typ = self._infer(f)
+                match f_typ:
+                    case ir.FunctionType(p, b):
+                        x_tm = self._check_with(p, x, p.type)
+                        typ = ir.Inliner().run_with(p.name, x_tm, b)
+                        val = ir.Inliner().apply(f_tm, x_tm)
+                        return val, typ
+                    case got:
+                        raise TypeCheckError("expected function type", f.loc, got)
+            case Type(_):
+                return ir.Type(), ir.Type()
+        raise AssertionError("impossible")
+
+    def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
+        self.locals[p.name.id] = p.type
+        ret = self._check(n, typ)
+        try:
+            del self.locals[p.name.id]
+        except KeyError:
+            pass
+        return ret
+
+    def _infer_with(self, p: Param[ir.IR], n: Node):
+        self.locals[p.name.id] = p.type
+        ret = self._infer(n)
+        try:
+            del self.locals[p.name.id]
+        except KeyError:
+            pass
+        return ret

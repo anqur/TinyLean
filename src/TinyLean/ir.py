@@ -154,6 +154,3 @@ class Converter:
             case Type(), Type():
                 return True
         return False
-
-
-can_convert = lambda g, a, b: Converter(g).check(a, b)
