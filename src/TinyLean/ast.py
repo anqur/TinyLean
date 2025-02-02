@@ -48,6 +48,10 @@ grammar.definition.set_parse_action(
 )
 
 
+def parse(s: str):
+    return grammar.program.parse_string(s, parse_all=True)
+
+
 class NameResolveError(Exception): ...
 
 

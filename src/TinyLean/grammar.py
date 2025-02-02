@@ -4,9 +4,7 @@ ParserElement.enable_packrat()
 
 COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
-DEF, INDUCTIVE, TYPE = map(
-    lambda w: Keyword(w).suppress(), "def inductive Type".split()
-)
+DEF, INDUCTIVE, TYPE = map(lambda w: Suppress(Keyword(w)), "def inductive Type".split())
 
 ASSIGN, ARROW, FUN, TO = map(
     lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split()
@@ -15,25 +13,24 @@ ASSIGN, ARROW, FUN, TO = map(
 LPAREN, RPAREN, LBRACE, RBRACE, COLON = map(Suppress, "(){}:")
 
 NAME = unicode_set.identifier()
-NEWLINE = Opt(Suppress(White(" \t\r"))) + Suppress("\n")
+INLINE_WHITE = Opt(Suppress(White(" \t\r")))
 
-oneline = lambda e: (e + NEWLINE).leave_whitespace()
 parenthesized = lambda e: LPAREN + e + RPAREN
 braced = lambda e: LBRACE + e + RBRACE
 
 expr = Forward()
+paren_expr = parenthesized(expr)
 
 param = NAME + COLON + expr
-implicit_param = braced(param)
-explicit_param = parenthesized(param)
+implicit_param = Group(braced(param))
+explicit_param = Group(parenthesized(param))
 
 function_type = (implicit_param | explicit_param) + ARROW + expr
-paren_expr = parenthesized(expr)
 function = FUN + NAME + TO + expr
-call = oneline((NAME | paren_expr) + expr)
+call = ((NAME | paren_expr) + INLINE_WHITE + expr).leave_whitespace()
 REFERENCE = NAME.copy()
 
-expr << Group(function_type | paren_expr | function | TYPE | call | REFERENCE)
+expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
 
 definition = Group(
     DEF
@@ -42,7 +39,7 @@ definition = Group(
     + COLON  # TODO: optional return type
     + expr
     + ASSIGN
-    + oneline(expr)
+    + expr
 )
 
 program = ZeroOrMore(definition).ignore(COMMENT)
