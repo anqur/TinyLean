@@ -26,7 +26,8 @@ class TestGrammar(TestCase):
 
     def test_parse_expr_call(self):
         parse(expr, "a b")
-        parse(expr, "(a b) c")  # TODO: should we support `a b c`?
+        parse(expr, "a b c")
+        parse(expr, "a b c d")
         parse(expr, "(fun _ => Type) Type")
 
     def test_parse_oneline_definition(self):

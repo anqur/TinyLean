@@ -27,7 +27,7 @@ explicit_param = Group(parenthesized(param))
 
 function_type = (implicit_param | explicit_param) + ARROW + expr
 function = FUN + NAME + TO + expr
-call = ((NAME | paren_expr) + INLINE_WHITE + expr).leave_whitespace()
+call = ((NAME | paren_expr) + OneOrMore(INLINE_WHITE + expr)).leave_whitespace()
 REFERENCE = NAME.copy()
 
 expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
