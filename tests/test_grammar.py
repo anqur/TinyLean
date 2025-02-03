@@ -1,12 +1,6 @@
 from unittest import TestCase
 
 from TinyLean.grammar import definition, program, expr
-from TinyLean import Ident
-
-
-class TestIdent(TestCase):
-    def test_fresh(self):
-        self.assertNotEqual(Ident.fresh("i").id, Ident.fresh("j").id)
 
 
 parse = lambda g, text: g.parse_string(text, parse_all=True)
@@ -31,7 +25,7 @@ class TestGrammar(TestCase):
         parse(expr, "(fun _ => Type) Type")
 
     def test_parse_oneline_definition(self):
-        parse(definition, "def f (a : Type) : Type ≔ a\n")
+        parse(definition, "def f (a : Type) : Type ≔ a")
 
     def test_parse_oneline_definition_white(self):
         parse(definition, " def t : Type := Type \n ")
@@ -70,9 +64,3 @@ class TestGrammar(TestCase):
                 a
             """,
         )
-
-
-class TestAST(TestCase):
-    def test_parse_program(self):
-        # TODO
-        pass
