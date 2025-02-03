@@ -35,14 +35,14 @@ class Call(Node):
     arg: Node
 
 
-grammar.NAME.set_parse_action(lambda s, l, r: Ident(s))
+grammar.NAME.set_parse_action(lambda l, r: Ident(r[0]))
 # grammar.param.set_parse_action(lambda r: Param(r[0], r[1]))
 # grammar.function_type.set_parse_action(lambda l, r: FunctionType(l, r[0], r[1]))
 # grammar.paren_expr.set_parse_action(lambda r: r[0])
 # grammar.function.set_parse_action(lambda l, r: Function(l, r[0], r[1]))
-# grammar.TYPE.set_parse_action(lambda l, r: Type(l))
+grammar.TYPE.set_parse_action(lambda l, r: Type(l))
 # grammar.call.set_parse_action(lambda l, r: Call(l, r[0], r[1]))
-# grammar.REFERENCE.set_parse_action(lambda l, r: Reference(l, r[0]))
+grammar.REFERENCE.set_parse_action(lambda l, r: Reference(l, Ident.fresh(r[0])))
 # grammar.definition.set_parse_action(lambda l, r: Declaration(l, r[0], r[1], r[2], r[3]))
 
 

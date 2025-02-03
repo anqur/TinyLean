@@ -2,8 +2,7 @@ from unittest import TestCase
 
 from TinyLean.grammar import definition, program, expr
 
-
-parse = lambda g, text: g.parse_string(text, parse_all=True)
+from . import parse
 
 
 class TestGrammar(TestCase):
