@@ -30,3 +30,9 @@ class TestParser(TestCase):
         self.assertEqual(type(a), ast.Reference)
         self.assertEqual(a.loc, 2)
         self.assertEqual(a.name.text, "hello")
+
+    def test_parse_paren_expr(self):
+        a = parse(grammar.paren_expr, "(hello)")[0]
+        self.assertEqual(type(a), ast.Reference)
+        self.assertEqual(a.loc, 1)
+        self.assertEqual(a.name.text, "hello")
