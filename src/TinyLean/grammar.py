@@ -22,8 +22,8 @@ expr = Forward()
 paren_expr = parenthesized(expr)
 
 param = NAME + COLON + expr
-implicit_param = Group(braced(param))
-explicit_param = Group(parenthesized(param))
+implicit_param = braced(param)
+explicit_param = parenthesized(param)
 
 function_type = (implicit_param | explicit_param) + ARROW + expr
 function = FUN + NAME + TO + expr
@@ -35,7 +35,8 @@ expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
 definition = Group(
     DEF
     + NAME
-    + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
+    + ZeroOrMore(implicit_param)
+    + ZeroOrMore(explicit_param)
     + COLON  # TODO: optional return type
     + expr
     + ASSIGN
