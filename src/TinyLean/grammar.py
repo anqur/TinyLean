@@ -29,7 +29,7 @@ paren_expr = parenthesized(expr)
 callee = Group(REFERENCE) | paren_expr
 arg = Group(TYPE | REFERENCE) | paren_expr
 call = (callee + OneOrMore(INLINE_WHITE + arg)).leave_whitespace()
-REFERENCE << NAME.copy()
+REFERENCE << Group(NAME)
 
 expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
 

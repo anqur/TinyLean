@@ -38,7 +38,7 @@ class Call(Node):
 
 grammar.NAME.set_parse_action(lambda r: Ident.fresh(r[0]))
 grammar.TYPE.set_parse_action(lambda l, r: Type(l))
-grammar.REFERENCE.set_parse_action(lambda l, r: Reference(l, Ident.fresh(r[0])))
+grammar.REFERENCE.set_parse_action(lambda l, r: Reference(l, r[0][0]))
 grammar.paren_expr.set_parse_action(lambda r: r[0])
 grammar.implicit_param.set_parse_action(lambda r: Param(r[0], r[1][0], implicit=True))
 grammar.explicit_param.set_parse_action(lambda r: Param(r[0], r[1][0]))
