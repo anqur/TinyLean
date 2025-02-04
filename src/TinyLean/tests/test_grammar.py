@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from TinyLean.grammar import definition, program, expr
+from ..grammar import definition, program, expr
 
 from . import parse
 

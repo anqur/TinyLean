@@ -19,15 +19,13 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Install test dependencies
-        run: |
-          pip install --upgrade build check-manifest twine black pytest coverage
-          pip install .
+        run: pip install --upgrade build check-manifest twine black pytest coverage
       - name: Lint
         run: black . --check
       - name: Build
         run: |
-          check-manifest --ignore 'tests/**'
+          check-manifest
           python -m build
           python -m twine check dist/*
       - name: Test
-        run: pytest tests/
+        run: pytest src/TinyLean/tests/

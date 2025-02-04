@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from TinyLean import ast, Ident, grammar
+from .. import ast, Ident, grammar
 
 from . import parse
 
