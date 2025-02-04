@@ -37,7 +37,7 @@ class Param[T]:
 class Declaration[T]:
     loc: int
     name: Ident
-    param_types: list[Param[T]]
+    params: list[Param[T]]
     return_type: T
     definition: T
 

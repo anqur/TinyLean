@@ -47,10 +47,9 @@ grammar.function.set_parse_action(lambda l, r: Function(l, r[0], r[1][0]))
 grammar.call.set_parse_action(
     lambda l, r: reduce(lambda a, b: Call(l, a, b[0]), r[1:], r[0][0])
 )
-# grammar.definition.set_parse_action(lambda l, r: Declaration(l, r[0], r[1], r[2], r[3]))
-
-
-parse = lambda s: grammar.program.parse_string(s, parse_all=True)
+grammar.definition.set_parse_action(
+    lambda l, r: Declaration(l, r[0][0], r[0][1], r[0][2][0], r[0][3][0])
+)
 
 
 class NameResolveError(Exception): ...
@@ -66,7 +65,7 @@ class NameResolver:
 
     def _resolve_def(self, d: Declaration[Node]):
         params = []
-        for name, ty in d.param_types:
+        for name, ty in d.params:
             self._insert_local(name)
             params.append(Param(name, self._resolve_expr(ty)))
         ret = self._resolve_expr(d.return_type)
@@ -136,7 +135,7 @@ class TypeChecker:
     def _run(self, d: Declaration[Node]) -> Declaration[ir.IR]:
         self.locals.clear()
         params = []
-        for p in d.param_types:
+        for p in d.params:
             typ = self._check(p.type, ir.Type())
             params.append(Param(p.name, typ))
             self.locals[p.name.id] = typ

@@ -36,8 +36,7 @@ expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
 definition = Group(
     DEF
     + NAME
-    + ZeroOrMore(implicit_param)
-    + ZeroOrMore(explicit_param)
+    + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
     + COLON  # TODO: optional return type
     + expr
     + ASSIGN

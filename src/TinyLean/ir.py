@@ -80,11 +80,11 @@ rename = lambda v: Renamer().run(v)
 
 
 def signature_type(d: Declaration[IR]) -> IR:
-    return rename(reduce(trustme(FunctionType), reversed(d.param_types), d.return_type))
+    return rename(reduce(trustme(FunctionType), reversed(d.params), d.return_type))
 
 
 def definition_value(d: Declaration[IR]) -> IR:
-    return rename(reduce(trustme(Function), reversed(d.param_types), d.definition))
+    return rename(reduce(trustme(Function), reversed(d.params), d.definition))
 
 
 @dataclass(frozen=True)

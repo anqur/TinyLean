@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from .. import ast, Ident, grammar, Param
+from .. import ast, Ident, grammar, Param, Declaration
 
 from . import parse
 
@@ -114,3 +114,14 @@ class TestParser(TestCase):
         self.assertEqual(ast.Reference, type(x.body))
         self.assertEqual("a", x.body.name.text)
         self.assertEqual(11, x.body.loc)
+
+    def test_parse_definition_constant(self):
+        x = parse(grammar.definition, "  def a : Type := Type")[0]
+        self.assertEqual(Declaration, type(x))
+        self.assertEqual(2, x.loc)
+        self.assertEqual(0, len(x.params))
+        self.assertEqual(ast.Type, type(x.return_type))
+        self.assertEqual(10, x.return_type.loc)
+        self.assertEqual(ast.Type, type(x.definition))
+        self.assertEqual(18, x.definition.loc)
+        # TODO: Definitions with non-empty parameters.
