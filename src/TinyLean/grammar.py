@@ -1,7 +1,5 @@
 from pyparsing import *
 
-ParserElement.enable_packrat()
-
 COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 DEF, INDUCTIVE, TYPE = map(lambda w: Suppress(Keyword(w)), "def inductive Type".split())
@@ -19,7 +17,7 @@ parenthesized = lambda e: LPAREN + e + RPAREN
 braced = lambda e: LBRACE + e + RBRACE
 
 expr = Forward()
-paren_expr = parenthesized(expr)
+REFERENCE = Forward()  # NOTE: a hack for future set_parse_action
 
 param = NAME + COLON + expr
 implicit_param = braced(param)
@@ -27,8 +25,11 @@ explicit_param = parenthesized(param)
 
 function_type = (implicit_param | explicit_param) + ARROW + expr
 function = FUN + NAME + TO + expr
-call = ((NAME | paren_expr) + OneOrMore(INLINE_WHITE + expr)).leave_whitespace()
-REFERENCE = NAME.copy()
+paren_expr = parenthesized(expr)
+callee = Group(REFERENCE) | paren_expr
+arg = Group(TYPE | REFERENCE) | paren_expr
+call = (callee + OneOrMore(INLINE_WHITE + arg)).leave_whitespace()
+REFERENCE << NAME.copy()
 
 expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
 

@@ -6,8 +6,8 @@ trustme = lambda t: cast(Any, t)
 
 @dataclass(frozen=True)
 class Ident:
-    text: str = ""
-    id: int = 0
+    id: int
+    text: str
 
     _NEXT_ID: ClassVar[int] = 0
 
@@ -20,7 +20,7 @@ class Ident:
     @classmethod
     def fresh(cls, text: str):
         cls._NEXT_ID += 1
-        return Ident(text, cls._NEXT_ID)
+        return Ident(cls._NEXT_ID, text)
 
 
 @dataclass(frozen=True)

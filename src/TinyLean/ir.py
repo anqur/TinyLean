@@ -57,7 +57,7 @@ class Renamer:
         match v:
             case Reference(v):
                 try:
-                    return Reference(Ident(v.text, self.locals[v.id]))
+                    return Reference(Ident(self.locals[v.id], v.text))
                 except KeyError:
                     return v
             case Call(f, x):
