@@ -50,8 +50,7 @@ grammar.call.set_parse_action(
 # grammar.definition.set_parse_action(lambda l, r: Declaration(l, r[0], r[1], r[2], r[3]))
 
 
-def parse(s: str):
-    return grammar.program.parse_string(s, parse_all=True)
+parse = lambda s: grammar.program.parse_string(s, parse_all=True)
 
 
 class NameResolveError(Exception): ...
