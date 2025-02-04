@@ -27,6 +27,7 @@ class Ident:
 class Param[T]:
     name: Ident
     type: T
+    implicit: bool = False
 
     def __str__(self):
         return f"({self.name}: {self.type})"
