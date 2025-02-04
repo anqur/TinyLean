@@ -19,7 +19,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Install test dependencies
-        run: pip install --upgrade build check-manifest twine black pytest coverage
+        run: |
+          pip install --upgrade build check-manifest twine black pytest coverage
+          pip install .
       - name: Lint
         run: black . --check
       - name: Build
