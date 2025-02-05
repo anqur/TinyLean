@@ -48,7 +48,7 @@ grammar.call.set_parse_action(
     lambda l, r: reduce(lambda a, b: Call(l, a, b[0]), r[1:], r[0][0])
 )
 grammar.definition.set_parse_action(
-    lambda l, r: Declaration(l, r[0][0], r[0][1], r[0][2][0], r[0][3][0])
+    lambda l, r: Declaration(l, r[0], list(r[1]), r[2][0], r[3][0])
 )
 
 

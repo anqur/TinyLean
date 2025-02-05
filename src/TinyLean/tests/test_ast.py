@@ -116,12 +116,30 @@ class TestParser(TestCase):
         self.assertEqual(11, x.body.loc)
 
     def test_parse_definition_constant(self):
-        x = parse(grammar.definition, "  def a : Type := Type")[0]
+        x = parse(grammar.definition, "  def f : Type := Type")[0]
         self.assertEqual(Declaration, type(x))
         self.assertEqual(2, x.loc)
+        self.assertEqual("f", x.name.text)
         self.assertEqual(0, len(x.params))
         self.assertEqual(ast.Type, type(x.return_type))
         self.assertEqual(10, x.return_type.loc)
         self.assertEqual(ast.Type, type(x.definition))
         self.assertEqual(18, x.definition.loc)
-        # TODO: Definitions with non-empty parameters.
+
+    def test_parse_definition(self):
+        x = parse(grammar.definition, "  def f {a: Type} (b: Type): Type := a")[0]
+        self.assertEqual(ast.Declaration, type(x))
+        self.assertEqual(2, x.loc)
+        self.assertEqual("f", x.name.text)
+        self.assertEqual(list, type(x.params))
+        self.assertEqual(2, len(x.params))
+        self.assertEqual(ast.Param, type(x.params[0]))
+        self.assertTrue(x.params[0].implicit)
+        self.assertEqual("a", x.params[0].name.text)
+        self.assertEqual(ast.Type, type(x.params[0].type))
+        self.assertEqual(12, x.params[0].type.loc)
+        self.assertEqual(ast.Param, type(x.params[1]))
+        self.assertFalse(x.params[1].implicit)
+        self.assertEqual("b", x.params[1].name.text)
+        self.assertEqual(ast.Type, type(x.params[1].type))
+        self.assertEqual(22, x.params[1].type.loc)

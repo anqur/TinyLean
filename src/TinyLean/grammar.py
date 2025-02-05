@@ -33,7 +33,7 @@ REFERENCE << Group(NAME)
 
 expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
 
-definition = Group(
+definition = (
     DEF
     + NAME
     + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
@@ -42,5 +42,6 @@ definition = Group(
     + ASSIGN
     + expr
 )
+declaration = Group(definition)
 
-program = ZeroOrMore(definition).ignore(COMMENT)
+program = ZeroOrMore(declaration).ignore(COMMENT)
