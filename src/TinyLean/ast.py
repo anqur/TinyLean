@@ -50,6 +50,7 @@ grammar.call.set_parse_action(
 grammar.definition.set_parse_action(
     lambda l, r: Declaration(l, r[0], list(r[1]), r[2][0], r[3][0])
 )
+grammar.declaration.set_parse_action(lambda r: r[0])
 
 
 class NameResolveError(Exception): ...

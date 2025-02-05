@@ -143,3 +143,19 @@ class TestParser(TestCase):
         self.assertEqual("b", x.params[1].name.text)
         self.assertEqual(ast.Type, type(x.params[1].type))
         self.assertEqual(22, x.params[1].type.loc)
+
+    def test_parse_program(self):
+        x = list(
+            parse(
+                grammar.program,
+                """
+                def a: Type := Type
+                def b: Type := Type
+                """,
+            )
+        )
+        self.assertEqual(2, len(x))
+        self.assertEqual(Declaration, type(x[0]))
+        self.assertEqual("a", x[0].name.text)
+        self.assertEqual(Declaration, type(x[1]))
+        self.assertEqual("b", x[1].name.text)
