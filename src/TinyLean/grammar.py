@@ -13,9 +13,9 @@ LPAREN, RPAREN, LBRACE, RBRACE, COLON = map(Suppress, "(){}:")
 IDENT = unicode_set.identifier().set_name("identifier")
 
 # NOTE: a hack for future set_parse_action
-expr, REFERENCE, TYPE, call = map(
+expr, REFERENCE, TYPE, call, paren_expr = map(
     lambda n: Forward().set_name(n),
-    "expression,reference,type,function call".split(","),
+    "expression,reference,type,function call,parenthesized expression".split(","),
 )
 
 annotated = IDENT + COLON + expr
@@ -25,14 +25,14 @@ param = implicit_param | explicit_param
 
 function_type = (param + ARROW + expr).set_name("function type")
 function = (FUN + IDENT + TO + expr).set_name("function")
-paren_expr = LPAREN + expr + RPAREN
 
 expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
-callee = Group(REFERENCE) | paren_expr
-arg = Group(TYPE | REFERENCE) | paren_expr
+callee = Group(REFERENCE | paren_expr)
+arg = Group(TYPE | REFERENCE | paren_expr)
 call << (callee + OneOrMore(Opt(Suppress(White(" \t\r"))) + arg)).leave_whitespace()
 REFERENCE << IDENT.copy()  # NOTE: should keep unknown for rules that depend on this
 TYPE << Keyword("Type")  # NOTE: ditto
+paren_expr << LPAREN + expr + RPAREN  # NOTE: ditto
 
 definition = (
     DEF
