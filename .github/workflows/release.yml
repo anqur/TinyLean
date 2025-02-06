@@ -19,7 +19,7 @@ jobs:
         run: pip install --upgrade build check-manifest twine
       - name: Build
         run: |
-          check-manifest --ignore 'tests/**'
+          check-manifest
           python -m build
           python -m twine check dist/*
       - name: Publish

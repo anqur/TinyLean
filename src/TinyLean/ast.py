@@ -126,7 +126,10 @@ class NameResolver:
         return old
 
 
-class TypeAssertionError(Exception): ...
+class UnexpectedFunctionError(Exception): ...
+
+
+class ExpectedFunctionError(Exception): ...
 
 
 class TypeMismatchError(Exception): ...
@@ -144,16 +147,16 @@ class TypeChecker:
         self.locals.clear()
         params = []
         for p in d.params:
-            typ = self._check(p.type, ir.Type())
+            typ = self.check(p.type, ir.Type())
             params.append(Param(p.name, typ))
             self.locals[p.name.id] = typ
-        ret = self._check(d.return_type, ir.Type())
-        body = self._check(d.definition, ret)
+        ret = self.check(d.return_type, ir.Type())
+        body = self.check(d.definition, ret)
         checked_def = Declaration(d.loc, d.name, params, ret, body)
         self.globals[d.name.id] = checked_def
         return checked_def
 
-    def _check(self, n: Node, typ: ir.IR) -> ir.IR:
+    def check(self, n: Node, typ: ir.IR) -> ir.IR:
         match n:
             case Function(loc, v, body):
                 match ir.inline(typ):
@@ -163,17 +166,17 @@ class TypeChecker:
                         return ir.Function(
                             param, self._check_with(param, body, body_type)
                         )
-                    case got:
-                        raise TypeAssertionError("expected function type", loc, got)
+                    case want:
+                        raise UnexpectedFunctionError("unexpected function", loc, want)
             case _:
-                val, got = self._infer(n)
+                val, got = self.infer(n)
                 got = ir.inline(got)
                 want = ir.inline(typ)
                 if ir.Converter(self.globals).check(got, want):
                     return val
                 raise TypeMismatchError("type mismatch", n.loc, got, want)
 
-    def _infer(self, n: Node) -> tuple[ir.IR, ir.IR]:
+    def infer(self, n: Node) -> tuple[ir.IR, ir.IR]:
         match n:
             case Reference(_, v):
                 try:
@@ -186,12 +189,12 @@ class TypeChecker:
                 except KeyError:
                     raise AssertionError(f"impossible: {repr(v)}")
             case FunctionType(_, p, b):
-                p_typ = self._check(p.type, ir.Type())
+                p_typ = self.check(p.type, ir.Type())
                 inferred_p = Param(p.name, p_typ)
                 b_val = self._check_with(inferred_p, b, ir.Type())
                 return ir.FunctionType(inferred_p, b_val), ir.Type()
             case Call(_, f, x):
-                f_tm, f_typ = self._infer(f)
+                f_tm, f_typ = self.infer(f)
                 match f_typ:
                     case ir.FunctionType(p, b):
                         x_tm = self._check_with(p, x, p.type)
@@ -199,14 +202,14 @@ class TypeChecker:
                         val = ir.Inliner().apply(f_tm, x_tm)
                         return val, typ
                     case got:
-                        raise TypeAssertionError("expected function type", f.loc, got)
+                        raise ExpectedFunctionError("expected function", f.loc, got)
             case Type(_):
                 return ir.Type(), ir.Type()
         raise AssertionError(f"impossible: {n}")
 
     def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
         self.locals[p.name.id] = p.type
-        ret = self._check(n, typ)
+        ret = self.check(n, typ)
         try:
             del self.locals[p.name.id]
         except KeyError:
@@ -215,7 +218,7 @@ class TypeChecker:
 
     def _infer_with(self, p: Param[ir.IR], n: Node):
         self.locals[p.name.id] = p.type
-        ret = self._infer(n)
+        ret = self.infer(n)
         try:
             del self.locals[p.name.id]
         except KeyError:

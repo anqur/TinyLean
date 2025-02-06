@@ -1,7 +1,7 @@
 from typing import cast
 from unittest import TestCase
 
-from .. import ast, Ident, grammar, Param, Declaration
+from .. import ast, Ident, grammar, Param, Declaration, ir
 
 from . import parse
 
@@ -252,3 +252,21 @@ class TestNameResolver(TestCase):
         _, loc, n = e.exception.args
         self.assertEqual(58, loc)
         self.assertEqual("f0", n.text)
+
+
+check = lambda s: ast.TypeChecker().run(resolve(s))
+check_expr = lambda s, t: ast.TypeChecker().check(resolve_expr(s), t)
+infer_expr = lambda s: ast.TypeChecker().infer(resolve_expr(s))
+
+
+class TestTypeChecker(TestCase):
+    def test_check_expr_type(self):
+        check_expr("Type", ir.Type())
+        check_expr("{a: Type} -> (b: Type) -> a", ir.Type())
+
+    def test_check_expr_type_failed(self):
+        with self.assertRaises(ast.UnexpectedFunctionError) as e:
+            check_expr("fun a => a", ir.Type())
+        _, loc, want = e.exception.args
+        self.assertEqual(0, loc)
+        self.assertEqual(ir.Type, type(want))
