@@ -20,7 +20,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install test dependencies
         run: |
-          pip install --upgrade build check-manifest twine black pytest coverage
+          pip install --upgrade build check-manifest twine black pytest pytest-cov
           pip install .
       - name: Lint
         run: black . --check
@@ -29,5 +29,9 @@ jobs:
           check-manifest
           python -m build
           python -m twine check dist/*
-      - name: Test
-        run: pytest src/TinyLean/tests/
+      - name: Test and report coverage
+        run: pytest --cov-branch --cov-report=xml src/TinyLean/tests/
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
