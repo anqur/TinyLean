@@ -68,7 +68,7 @@ class Renamer:
                 return FunctionType(self._param(p), self.run(b))
             case Type():
                 return v
-        raise AssertionError("impossible")
+        raise AssertionError(f"impossible: {v}")
 
     def _param(self, p: Param[IR]):
         name = Ident.fresh(p.name.text)
@@ -112,7 +112,7 @@ class Inliner:
                 return FunctionType(self._param(p), self.run(b))
             case Type():
                 return v
-        raise AssertionError("impossible")
+        raise AssertionError(f"impossible: {v}")
 
     def run_with(self, a_name: Ident, a: IR, b: IR):
         self.env[a_name.id] = a

@@ -159,3 +159,26 @@ class TestParser(TestCase):
         self.assertEqual("a", x[0].name.text)
         self.assertEqual(Declaration, type(x[1]))
         self.assertEqual("b", x[1].name.text)
+
+
+resolve_expr = lambda s: ast.NameResolver().expr(parse(grammar.expr, s)[0][0])
+
+
+class TestNameResolver(TestCase):
+    def test_resolve_expr_function(self):
+        resolve_expr("fun a => a")
+
+        with self.assertRaises(ast.NameResolveError) as e:
+            resolve_expr("fun a => b")
+        _, loc, n = e.exception.args
+        self.assertEqual(9, loc)
+        self.assertEqual("b", n.text)
+
+    def test_resolve_expr_function_type(self):
+        resolve_expr("{a: Type} -> (b: Type) -> a")
+
+        with self.assertRaises(ast.NameResolveError) as e:
+            resolve_expr("{a: Type} -> (b: Type) -> c")
+        _, loc, n = e.exception.args
+        self.assertEqual(26, loc)
+        self.assertEqual("c", n.text)

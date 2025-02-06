@@ -11,18 +11,17 @@ ASSIGN, ARROW, FUN, TO = map(
 LPAREN, RPAREN, LBRACE, RBRACE, COLON = map(Suppress, "(){}:")
 
 NAME = unicode_set.identifier()
-parenthesized = lambda e: LPAREN + e + RPAREN
 
 expr = Forward()
 REFERENCE = Forward()  # NOTE: a hack for future set_parse_action
 
 param = NAME + COLON + expr
 implicit_param = LBRACE + param + RBRACE
-explicit_param = parenthesized(param)
+explicit_param = LPAREN + param + RPAREN
 
 function_type = (implicit_param | explicit_param) + ARROW + expr
 function = FUN + NAME + TO + expr
-paren_expr = parenthesized(expr)
+paren_expr = LPAREN + expr + RPAREN
 callee = Group(REFERENCE) | paren_expr
 arg = Group(TYPE | REFERENCE) | paren_expr
 call = (callee + OneOrMore(Opt(Suppress(White(" \t\r"))) + arg)).leave_whitespace()
