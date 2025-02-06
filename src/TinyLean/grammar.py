@@ -2,7 +2,7 @@ from pyparsing import *
 
 COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
-DEF, INDUCTIVE, TYPE = map(lambda w: Suppress(Keyword(w)), "def inductive Type".split())
+DEF, INDUCTIVE = map(lambda w: Suppress(Keyword(w)), "def inductive".split())
 
 ASSIGN, ARROW, FUN, TO = map(
     lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split()
@@ -10,35 +10,37 @@ ASSIGN, ARROW, FUN, TO = map(
 
 LPAREN, RPAREN, LBRACE, RBRACE, COLON = map(Suppress, "(){}:")
 
-NAME = unicode_set.identifier()
+IDENT = unicode_set.identifier().set_name("identifier")
 
-expr = Forward()
-REFERENCE = Forward()  # NOTE: a hack for future set_parse_action
-call = Forward()  # NOTE: mutual recursion workaround
+expr = Forward().set_name("expression")
+REFERENCE = Forward().set_name("reference")  # NOTE: a hack for future set_parse_action
+call = Forward().set_name("function call")  # NOTE: mutual recursion workaround
 
-param = NAME + COLON + expr
-implicit_param = LBRACE + param + RBRACE
-explicit_param = LPAREN + param + RPAREN
+annotated = IDENT + COLON + expr
+implicit_param = (LBRACE + annotated + RBRACE).set_name("implicit parameter")
+explicit_param = (LPAREN + annotated + RPAREN).set_name("explicit parameter")
+param = implicit_param | explicit_param
 
-function_type = (implicit_param | explicit_param) + ARROW + expr
-function = FUN + NAME + TO + expr
+function_type = (param + ARROW + expr).set_name("function type")
+function = (FUN + IDENT + TO + expr).set_name("function")
 paren_expr = LPAREN + expr + RPAREN
+TYPE = Keyword("Type").set_name("type")
 
 expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
 callee = Group(REFERENCE) | paren_expr
 arg = Group(TYPE | REFERENCE) | paren_expr
 call << (callee + OneOrMore(Opt(Suppress(White(" \t\r"))) + arg)).leave_whitespace()
-REFERENCE << NAME.copy()  # NOTE: should be after `call` rule
+REFERENCE << IDENT.copy()  # NOTE: should be after `call` rule
 
 definition = (
     DEF
-    + NAME
+    + IDENT
     + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
     + COLON  # TODO: optional return type
     + expr
     + ASSIGN
     + expr
-)
-declaration = Group(definition)
+).set_name("definition")
+declaration = Group(definition).set_name("declaration")
 
-program = ZeroOrMore(declaration).ignore(COMMENT)
+program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")

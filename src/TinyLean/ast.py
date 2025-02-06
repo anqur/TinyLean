@@ -36,12 +36,7 @@ class Call(Node):
     arg: Node
 
 
-def debug(a):
-    print(type(a), a)
-    return a
-
-
-grammar.NAME.set_parse_action(lambda r: Ident.fresh(r[0]))
+grammar.IDENT.set_parse_action(lambda r: Ident.fresh(r[0]))
 grammar.TYPE.set_parse_action(lambda l, r: Type(l))
 grammar.REFERENCE.set_parse_action(lambda l, r: Reference(l, Ident.fresh(r[0])))
 grammar.paren_expr.set_parse_action(lambda r: r[0])

@@ -12,12 +12,12 @@ class TestIdent(TestCase):
 
 class TestParser(TestCase):
     def test_parse_name(self):
-        x = parse(grammar.NAME, "  hello")[0]
+        x = parse(grammar.IDENT, "  hello")[0]
         self.assertEqual(Ident, type(x))
         self.assertEqual("hello", x.text)
 
     def test_parse_name_unbound(self):
-        x = parse(grammar.NAME, "_")[0]
+        x = parse(grammar.IDENT, "_")[0]
         self.assertTrue(x.is_unbound())
 
     def test_parse_type(self):
