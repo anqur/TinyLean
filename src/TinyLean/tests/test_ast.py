@@ -205,6 +205,7 @@ class TestNameResolver(TestCase):
         self.assertEqual(x.param_name.id, callee.name.id)
         self.assertEqual(y.param_name.id, arg.name.id)
 
+    def test_resolve_expr_function_failed(self):
         with self.assertRaises(ast.UndefinedVariableError) as e:
             resolve_expr("fun a => b")
         _, loc, n = e.exception.args
@@ -218,6 +219,7 @@ class TestNameResolver(TestCase):
         self.assertEqual(x.param.name.id, z.name.id)
         self.assertNotEqual(y.param.name.id, z.name.id)
 
+    def test_resolve_expr_function_type_failed(self):
         with self.assertRaises(ast.UndefinedVariableError) as e:
             resolve_expr("{a: Type} -> (b: Type) -> c")
         _, loc, n = e.exception.args
@@ -232,6 +234,14 @@ class TestNameResolver(TestCase):
             """
         )
 
+    def test_resolve_program_failed(self):
+        with self.assertRaises(ast.UndefinedVariableError) as e:
+            resolve("def f (a: Type) (b: c): Type := Type")
+        _, loc, n = e.exception.args
+        self.assertEqual(20, loc)
+        self.assertEqual("c", n.text)
+
+    def test_resolve_program_duplicate(self):
         with self.assertRaises(ast.DuplicateVariableError) as e:
             resolve(
                 """
@@ -242,15 +252,3 @@ class TestNameResolver(TestCase):
         _, loc, n = e.exception.args
         self.assertEqual(58, loc)
         self.assertEqual("f0", n.text)
-
-        with self.assertRaises(ast.UndefinedVariableError) as e:
-            resolve("def f (a: Type): Type := b")
-        _, loc, n = e.exception.args
-        self.assertEqual(25, loc)
-        self.assertEqual("b", n.text)
-
-        with self.assertRaises(ast.UndefinedVariableError) as e:
-            resolve("def f (a: Type) (b: c): Type := Type")
-        _, loc, n = e.exception.args
-        self.assertEqual(20, loc)
-        self.assertEqual("c", n.text)

@@ -12,10 +12,11 @@ LPAREN, RPAREN, LBRACE, RBRACE, COLON = map(Suppress, "(){}:")
 
 IDENT = unicode_set.identifier().set_name("identifier")
 
-expr = Forward().set_name("expression")
-REFERENCE = Forward().set_name("reference")  # NOTE: a hack for future set_parse_action
-TYPE = Forward().set_name("type")  # NOTE: ditto
-call = Forward().set_name("function call")  # NOTE: mutual recursion workaround
+# NOTE: a hack for future set_parse_action
+expr, REFERENCE, TYPE, call = map(
+    lambda n: Forward().set_name(n),
+    "expression,reference,type,function call".split(","),
+)
 
 annotated = IDENT + COLON + expr
 implicit_param = (LBRACE + annotated + RBRACE).set_name("implicit parameter")
