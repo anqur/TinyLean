@@ -16,12 +16,14 @@ class TestGrammar(TestCase):
     def test_parse_expr_function(self):
         parse(expr, "fun _ => Type")
         parse(expr, "λ _ ↦ Type")
+        parse(expr, "fun a => fun b => a")
 
     def test_parse_expr_call(self):
         parse(expr, "a b")
         parse(expr, "a b c")
         parse(expr, "a b c d")
         # parse(expr, "(fun _ => Type) Type")
+        parse(expr, "fun a => a b")
 
     def test_parse_oneline_definition(self):
         parse(definition, "def f (a : Type) : Type ≔ a")
