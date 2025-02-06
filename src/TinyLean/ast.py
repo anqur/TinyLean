@@ -48,34 +48,37 @@ grammar.call.set_parse_action(
     lambda l, r: reduce(lambda a, b: Call(l, a, b[0]), r[1:], r[0][0])
 )
 grammar.definition.set_parse_action(
-    lambda l, r: Declaration(l, r[0], list(r[1]), r[2][0], r[3][0])
+    lambda r: Declaration(r[0].loc, r[0].name, list(r[1]), r[2][0], r[3][0])
 )
 grammar.declaration.set_parse_action(lambda r: r[0])
 
 
-class NameResolveError(Exception): ...
+class DuplicateVariableError(Exception): ...
+
+
+class UndefinedVariableError(Exception): ...
 
 
 @dataclass(frozen=True)
 class NameResolver:
     locals: dict[str, Ident] = field(default_factory=dict)
-    globals: set[str] = field(default_factory=set)
+    globals: dict[str, Ident] = field(default_factory=dict)
 
     def run(self, decls: list[Declaration[Node]]):
         return [self.decl(d) for d in decls]
 
     def decl(self, d: Declaration[Node]):
         params = []
-        for name, ty in d.params:
-            self._insert_local(name)
-            params.append(Param(name, self.expr(ty)))
+        for p in d.params:
+            self._insert_local(p.name)
+            params.append(Param(p.name, self.expr(p.type)))
         ret = self.expr(d.return_type)
         body = self.expr(d.definition)
 
         if not d.name.is_unbound():
             if d.name.text in self.globals:
-                raise NameResolveError("duplicate variable", d.loc, d.name.text)
-            self.globals.add(d.name.text)
+                raise DuplicateVariableError("duplicate variable", d.loc, d.name)
+            self.globals[d.name.text] = d.name
 
         self.locals.clear()
         return Declaration(d.loc, d.name, params, ret, body)
@@ -86,7 +89,11 @@ class NameResolver:
                 try:
                     return Reference(loc, self.locals[v.text])
                 except KeyError:
-                    raise NameResolveError("undefined variable", loc, v)
+                    pass
+                try:
+                    return Reference(loc, self.globals[v.text])
+                except KeyError:
+                    raise UndefinedVariableError("undefined variable", loc, v)
             case FunctionType(loc, p, body):
                 typ = self.expr(p.type)
                 b = self._guard_local(p.name, body)

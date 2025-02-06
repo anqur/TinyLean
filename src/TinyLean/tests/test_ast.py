@@ -1,3 +1,4 @@
+from typing import cast
 from unittest import TestCase
 
 from .. import ast, Ident, grammar, Param, Declaration
@@ -147,7 +148,7 @@ class TestParser(TestCase):
     def test_parse_definition_constant(self):
         x = parse(grammar.definition, "  def f : Type := Type")[0]
         self.assertEqual(Declaration, type(x))
-        self.assertEqual(2, x.loc)
+        self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
         self.assertEqual(0, len(x.params))
         self.assertEqual(ast.Type, type(x.return_type))
@@ -158,7 +159,7 @@ class TestParser(TestCase):
     def test_parse_definition(self):
         x = parse(grammar.definition, "  def f {a: Type} (b: Type): Type := a")[0]
         self.assertEqual(ast.Declaration, type(x))
-        self.assertEqual(2, x.loc)
+        self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
         self.assertEqual(list, type(x.params))
         self.assertEqual(2, len(x.params))
@@ -191,23 +192,65 @@ class TestParser(TestCase):
 
 
 resolve_expr = lambda s: ast.NameResolver().expr(parse(grammar.expr, s)[0][0])
+resolve = lambda s: ast.NameResolver().run(list(parse(grammar.program, s)))
 
 
 class TestNameResolver(TestCase):
     def test_resolve_expr_function(self):
-        resolve_expr("fun a => fun b => a b")
+        x = cast(ast.Function, resolve_expr("fun a => fun b => a b"))
+        y = cast(ast.Function, x.body)
+        z = cast(ast.Call, y.body)
+        callee = cast(ast.Reference, z.callee)
+        arg = cast(ast.Reference, z.arg)
+        self.assertEqual(x.param_name.id, callee.name.id)
+        self.assertEqual(y.param_name.id, arg.name.id)
 
-        with self.assertRaises(ast.NameResolveError) as e:
+        with self.assertRaises(ast.UndefinedVariableError) as e:
             resolve_expr("fun a => b")
         _, loc, n = e.exception.args
         self.assertEqual(9, loc)
         self.assertEqual("b", n.text)
 
     def test_resolve_expr_function_type(self):
-        resolve_expr("{a: Type} -> (b: Type) -> a")
+        x = cast(ast.FunctionType, resolve_expr("{a: Type} -> (b: Type) -> a"))
+        y = cast(ast.FunctionType, x.return_type)
+        z = cast(ast.Reference, y.return_type)
+        self.assertEqual(x.param.name.id, z.name.id)
+        self.assertNotEqual(y.param.name.id, z.name.id)
 
-        with self.assertRaises(ast.NameResolveError) as e:
+        with self.assertRaises(ast.UndefinedVariableError) as e:
             resolve_expr("{a: Type} -> (b: Type) -> c")
         _, loc, n = e.exception.args
         self.assertEqual(26, loc)
+        self.assertEqual("c", n.text)
+
+    def test_resolve_program(self):
+        resolve(
+            """
+            def f0 (a: Type): Type := a
+            def f1 (a: Type): Type := f0 a 
+            """
+        )
+
+        with self.assertRaises(ast.DuplicateVariableError) as e:
+            resolve(
+                """
+                def f0: Type := Type
+                def f0: Type := Type
+                """
+            )
+        _, loc, n = e.exception.args
+        self.assertEqual(58, loc)
+        self.assertEqual("f0", n.text)
+
+        with self.assertRaises(ast.UndefinedVariableError) as e:
+            resolve("def f (a: Type): Type := b")
+        _, loc, n = e.exception.args
+        self.assertEqual(25, loc)
+        self.assertEqual("b", n.text)
+
+        with self.assertRaises(ast.UndefinedVariableError) as e:
+            resolve("def f (a: Type) (b: c): Type := Type")
+        _, loc, n = e.exception.args
+        self.assertEqual(20, loc)
         self.assertEqual("c", n.text)

@@ -35,7 +35,7 @@ TYPE << Keyword("Type")  # NOTE: ditto
 
 definition = (
     DEF
-    + IDENT
+    + REFERENCE
     + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
     + COLON  # TODO: optional return type
     + expr
