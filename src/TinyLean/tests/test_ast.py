@@ -78,6 +78,18 @@ class TestParser(TestCase):
         self.assertEqual(ast.Type, type(x.arg))
         self.assertEqual(7, x.arg.loc)
 
+    def test_parse_call_paren_function(self):
+        x = parse(grammar.call, "(fun _ => Type) Type")[0]
+        self.assertEqual(ast.Call, type(x))
+        self.assertEqual(0, x.loc)
+        self.assertEqual(ast.Function, type(x.callee))
+        self.assertEqual(1, x.callee.loc)
+        self.assertTrue(x.callee.param_name.is_unbound())
+        self.assertEqual(ast.Type, type(x.callee.body))
+        self.assertEqual(10, x.callee.body.loc)
+        self.assertEqual(ast.Type, type(x.arg))
+        self.assertEqual(16, x.arg.loc)
+
     def test_parse_function_type(self):
         x = parse(grammar.function_type, "  (a : Type) -> a")[0]
         self.assertEqual(ast.FunctionType, type(x))

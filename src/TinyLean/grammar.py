@@ -14,6 +14,7 @@ IDENT = unicode_set.identifier().set_name("identifier")
 
 expr = Forward().set_name("expression")
 REFERENCE = Forward().set_name("reference")  # NOTE: a hack for future set_parse_action
+TYPE = Forward().set_name("type")  # NOTE: ditto
 call = Forward().set_name("function call")  # NOTE: mutual recursion workaround
 
 annotated = IDENT + COLON + expr
@@ -24,13 +25,13 @@ param = implicit_param | explicit_param
 function_type = (param + ARROW + expr).set_name("function type")
 function = (FUN + IDENT + TO + expr).set_name("function")
 paren_expr = LPAREN + expr + RPAREN
-TYPE = Keyword("Type").set_name("type")
 
 expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
 callee = Group(REFERENCE) | paren_expr
 arg = Group(TYPE | REFERENCE) | paren_expr
 call << (callee + OneOrMore(Opt(Suppress(White(" \t\r"))) + arg)).leave_whitespace()
-REFERENCE << IDENT.copy()  # NOTE: should be after `call` rule
+REFERENCE << IDENT.copy()  # NOTE: should keep unknown for rules that depend on this
+TYPE << Keyword("Type")  # NOTE: ditto
 
 definition = (
     DEF
