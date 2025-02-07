@@ -2,6 +2,9 @@ from typing import ClassVar
 from dataclasses import dataclass
 
 
+class InternalCompilerError(Exception): ...
+
+
 @dataclass(frozen=True)
 class Ident:
     id: int

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import reduce
 from typing import cast
 
-from . import Ident, Param, Declaration
+from . import Ident, Param, Declaration, InternalCompilerError
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ class Renamer:
                 return FnType(self._param(p), self.run(b))
             case Type():
                 return v
-        raise AssertionError(f"impossible: {v}")
+        raise InternalCompilerError(v)  # pragma: no cover
 
     def _param(self, p: Param[IR]):
         name = Ident.fresh(p.name.text)
@@ -116,7 +116,7 @@ class Inliner:
                 return FnType(self._param(p), self.run(b))
             case Type():
                 return v
-        raise AssertionError(f"impossible: {v}")
+        raise InternalCompilerError(v)  # pragma: no cover
 
     def run_with(self, a_name: Ident, a: IR, b: IR):
         self.env[a_name.id] = a

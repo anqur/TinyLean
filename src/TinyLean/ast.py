@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from functools import reduce
 
-from . import Ident, Param, Declaration, ir, grammar
+from . import Ident, Param, Declaration, ir, grammar, InternalCompilerError
 
 
 @dataclass(frozen=True)
@@ -104,7 +104,7 @@ class NameResolver:
                 return Call(loc, self.expr(f), self.expr(x))
             case Type(_):
                 return node
-        raise AssertionError(f"impossible: {node}")
+        raise InternalCompilerError(node)  # pragma: no cover
 
     def _guard_local(self, v: Ident, node: Node):
         old = self._insert_local(v)
@@ -178,7 +178,7 @@ class TypeChecker:
                     d = self.globals[v.id]
                     return ir.definition_value(d), ir.signature_type(d)
                 except KeyError:
-                    raise AssertionError(f"impossible: {repr(v)}")
+                    raise InternalCompilerError(v)  # pragma: no cover
             case FnType(_, p, b):
                 p_typ = self.check(p.type, ir.Type())
                 inferred_p = Param(p.name, p_typ, p.implicit)
@@ -196,7 +196,7 @@ class TypeChecker:
                         raise TypeMismatchError("function", str(got), f.loc)
             case Type(_):
                 return ir.Type(), ir.Type()
-        raise AssertionError(f"impossible: {n}")
+        raise InternalCompilerError(n)  # pragma: no cover
 
     def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
         self.locals[p.name.id] = p.type
