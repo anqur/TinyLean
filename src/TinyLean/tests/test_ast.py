@@ -294,6 +294,14 @@ class TestTypeChecker(TestCase):
         self.assertEqual(ir.Type, type(v))
         self.assertEqual(ir.Type, type(ty))
 
+    def test_infer_expr_call_failed(self):
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            infer_expr("(Type) Type")
+        want, got, loc = e.exception.args
+        self.assertEqual(1, loc)
+        self.assertEqual("function", want)
+        self.assertEqual("Type", got)
+
     def test_infer_expr_function_type(self):
         v, ty = infer_expr("{a: Type} -> a")
         self.assertEqual(ir.FnType, type(v))
@@ -302,7 +310,9 @@ class TestTypeChecker(TestCase):
 
     def test_check_program(self):
         check("def a: Type := Type")
-        check("def id (a: Type): Type := a")
+        check("def f (a: Type): Type := a")
+        check("def f: (_: Type) -> Type := fun a => a")
+        check("def id (T: Type) (a: T): T := a")
 
     def test_check_program_failed(self):
         with self.assertRaises(ast.TypeMismatchError) as e:
@@ -315,7 +325,21 @@ class TestTypeChecker(TestCase):
     def test_check_program_call(self):
         check(
             """
-            def f0 (a: Type): Type := Type
+            def f0 (a: Type): Type := a
             def f1: Type := f0 Type
+            def f2: f0 Type := Type
             """
         )
+
+    def test_check_program_call_failed(self):
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            check(
+                """
+                def f0 (a: Type): Type := a
+                def f1 (a: Type): Type := f0
+                """
+            )
+        want, got, loc = e.exception.args
+        self.assertEqual(87, loc)
+        self.assertEqual("Type", str(want))
+        self.assertEqual("(a: Type) → Type", str(got))

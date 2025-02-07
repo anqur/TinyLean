@@ -146,7 +146,7 @@ class Converter:
     def eq(self, lhs: IR, rhs: IR) -> bool:
         match lhs, rhs:
             case Ref(x), Ref(y):
-                return x.name.id == y.name.id and x.name.text == y.name.text
+                return x.id == y.id and x.text == y.text
             case Call(f, x), Call(g, y):
                 return self.eq(f, g) and self.eq(x, y)
             case Fn(p, b), Fn(q, c):

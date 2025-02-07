@@ -201,17 +201,5 @@ class TypeChecker:
     def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
         self.locals[p.name.id] = p.type
         ret = self.check(n, typ)
-        try:
-            del self.locals[p.name.id]
-        except KeyError:
-            pass
-        return ret
-
-    def _infer_with(self, p: Param[ir.IR], n: Node):
-        self.locals[p.name.id] = p.type
-        ret = self.infer(n)
-        try:
-            del self.locals[p.name.id]
-        except KeyError:
-            pass
+        del self.locals[p.name.id]  # FIXME: might fail, will catch it if we know why
         return ret
