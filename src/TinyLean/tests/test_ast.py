@@ -265,8 +265,9 @@ class TestTypeChecker(TestCase):
         check_expr("{a: Type} -> (b: Type) -> a", ir.Type())
 
     def test_check_expr_type_failed(self):
-        with self.assertRaises(ast.UnexpectedFunctionError) as e:
+        with self.assertRaises(ast.TypeMismatchError) as e:
             check_expr("fun a => a", ir.Type())
-        _, loc, want = e.exception.args
+        want, loc, got = e.exception.args
         self.assertEqual(0, loc)
-        self.assertEqual(ir.Type, type(want))
+        self.assertEqual("Type", want)
+        self.assertEqual("function", got)

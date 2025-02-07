@@ -127,12 +127,6 @@ class NameResolver:
         return old
 
 
-class UnexpectedFunctionError(Exception): ...
-
-
-class ExpectedFunctionError(Exception): ...
-
-
 class TypeMismatchError(Exception): ...
 
 
@@ -168,14 +162,14 @@ class TypeChecker:
                             param, self._check_with(param, body, body_type)
                         )
                     case want:
-                        raise UnexpectedFunctionError("unexpected function", loc, want)
+                        raise TypeMismatchError(str(want), loc, "function")
             case _:
                 val, got = self.infer(n)
                 got = ir.inline(got)
                 want = ir.inline(typ)
                 if ir.Converter(self.globals).check(got, want):
                     return val
-                raise TypeMismatchError("type mismatch", n.loc, got, want)
+                raise TypeMismatchError(str(want), n.loc, str(got))
 
     def infer(self, n: Node) -> tuple[ir.IR, ir.IR]:
         match n:
@@ -203,7 +197,7 @@ class TypeChecker:
                         val = ir.Inliner().apply(f_tm, x_tm)
                         return val, typ
                     case got:
-                        raise ExpectedFunctionError("expected function", f.loc, got)
+                        raise TypeMismatchError("function", f.loc, str(got))
             case Type(_):
                 return ir.Type(), ir.Type()
         raise AssertionError(f"impossible: {n}")
