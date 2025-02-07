@@ -1,19 +1,12 @@
 from dataclasses import dataclass, field
 from functools import reduce
+from typing import cast
 
-from . import Ident, Param, Declaration, trustme
+from . import Ident, Param, Declaration
 
 
 @dataclass(frozen=True)
 class IR: ...
-
-
-@dataclass(frozen=True)
-class Reference(IR):
-    name: Ident
-
-    def __str__(self):
-        return str(self.name)
 
 
 @dataclass(frozen=True)
@@ -23,7 +16,15 @@ class Type(IR):
 
 
 @dataclass(frozen=True)
-class FunctionType(IR):
+class Ref(IR):
+    name: Ident
+
+    def __str__(self):
+        return str(self.name)
+
+
+@dataclass(frozen=True)
+class FnType(IR):
     param_type: Param[IR]
     return_type: IR
 
@@ -32,7 +33,7 @@ class FunctionType(IR):
 
 
 @dataclass(frozen=True)
-class Function(IR):
+class Fn(IR):
     param: Param[IR]
     body: IR
 
@@ -55,17 +56,17 @@ class Renamer:
 
     def run(self, v: IR) -> IR:
         match v:
-            case Reference(v):
+            case Ref(v):
                 try:
-                    return Reference(Ident(self.locals[v.id], v.text))
+                    return Ref(Ident(self.locals[v.id], v.text))
                 except KeyError:
                     return v
             case Call(f, x):
                 return Call(self.run(f), self.run(x))
-            case Function(p, b):
-                return Function(self._param(p), self.run(b))
-            case FunctionType(p, b):
-                return FunctionType(self._param(p), self.run(b))
+            case Fn(p, b):
+                return Fn(self._param(p), self.run(b))
+            case FnType(p, b):
+                return FnType(self._param(p), self.run(b))
             case Type():
                 return v
         raise AssertionError(f"impossible: {v}")
@@ -79,12 +80,15 @@ class Renamer:
 rename = lambda v: Renamer().run(v)
 
 
+_ir = lambda t: cast(IR, t)
+
+
 def signature_type(d: Declaration[IR]) -> IR:
-    return rename(reduce(trustme(FunctionType), reversed(d.params), d.return_type))
+    return rename(reduce(lambda a, p: _ir(FnType(p, a)), reversed(d.params), d.ret))
 
 
 def definition_value(d: Declaration[IR]) -> IR:
-    return rename(reduce(trustme(Function), reversed(d.params), d.definition))
+    return rename(reduce(lambda a, p: _ir(Fn(p, a)), reversed(d.params), d.body))
 
 
 @dataclass(frozen=True)
@@ -93,7 +97,7 @@ class Inliner:
 
     def run(self, v: IR) -> IR:
         match v:
-            case Reference(n):
+            case Ref(n):
                 try:
                     return self.run(self.env[n.id])
                 except KeyError:
@@ -102,14 +106,14 @@ class Inliner:
                 f = self.run(f)
                 x = self.run(x)
                 match f:
-                    case Function(p, b):
+                    case Fn(p, b):
                         return self.run_with(p.name, x, b)
                     case _:
                         return Call(f, x)
-            case Function(p, b):
-                return Function(self._param(p), self.run(b))
-            case FunctionType(p, b):
-                return FunctionType(self._param(p), self.run(b))
+            case Fn(p, b):
+                return Fn(self._param(p), self.run(b))
+            case FnType(p, b):
+                return FnType(self._param(p), self.run(b))
             case Type():
                 return v
         raise AssertionError(f"impossible: {v}")
@@ -122,7 +126,7 @@ class Inliner:
         ret = f
         for x in args:
             match f:
-                case Function(p, b):
+                case Fn(p, b):
                     ret = self.run_with(p.name, x, b)
                 case _:
                     ret = Call(ret, x)
@@ -139,18 +143,18 @@ inline = lambda v: Inliner().run(v)
 class Converter:
     globals: dict[int, Declaration[IR]]
 
-    def check(self, lhs: IR, rhs: IR) -> bool:
+    def eq(self, lhs: IR, rhs: IR) -> bool:
         match lhs, rhs:
-            case Reference(x), Reference(y):
+            case Ref(x), Ref(y):
                 return x.name.id == y.name.id and x.name.text == y.name.text
             case Call(f, x), Call(g, y):
-                return self.check(f, g) and self.check(x, y)
-            case Function(p, b), Function(q, c):
-                return self.check(b, Inliner().run_with(q.name, Reference(p.name), c))
-            case FunctionType(p, b), FunctionType(q, c):
-                if not self.check(p.type, q.type):
+                return self.eq(f, g) and self.eq(x, y)
+            case Fn(p, b), Fn(q, c):
+                return self.eq(b, Inliner().run_with(q.name, Ref(p.name), c))
+            case FnType(p, b), FnType(q, c):
+                if not self.eq(p.type, q.type):
                     return False
-                return self.check(b, Inliner().run_with(q.name, Reference(p.name), c))
+                return self.eq(b, Inliner().run_with(q.name, Ref(p.name), c))
             case Type(), Type():
                 return True
         return False

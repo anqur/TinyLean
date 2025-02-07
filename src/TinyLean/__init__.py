@@ -1,7 +1,5 @@
-from typing import ClassVar, cast, Any
+from typing import ClassVar
 from dataclasses import dataclass
-
-trustme = lambda t: cast(Any, t)
 
 
 @dataclass(frozen=True)
@@ -39,8 +37,8 @@ class Declaration[T]:
     loc: int
     name: Ident
     params: list[Param[T]]
-    return_type: T
-    definition: T
+    ret: T
+    body: T
 
 
 def main():
