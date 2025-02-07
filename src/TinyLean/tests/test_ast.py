@@ -27,7 +27,7 @@ class TestParser(TestCase):
         self.assertEqual(2, x.loc)
 
     def test_parse_reference(self):
-        x = parse(grammar.REFERENCE, "  hello")[0]
+        x = parse(grammar.REF, "  hello")[0]
         self.assertEqual(ast.Reference, type(x))
         self.assertEqual(2, x.loc)
         self.assertEqual("hello", x.name.text)

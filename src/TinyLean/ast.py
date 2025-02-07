@@ -38,19 +38,20 @@ class Call(Node):
 
 grammar.IDENT.set_parse_action(lambda r: Ident.fresh(r[0]))
 grammar.TYPE.set_parse_action(lambda l, r: Type(l))
-grammar.REFERENCE.set_parse_action(lambda l, r: Reference(l, Ident.fresh(r[0])))
-grammar.paren_expr.set_parse_action(lambda r: r[0])
+grammar.REF.set_parse_action(lambda l, r: Reference(l, r[0][0]))
+grammar.paren_expr.set_parse_action(lambda r: r[0][0])
 grammar.implicit_param.set_parse_action(lambda r: Param(r[0], r[1][0], implicit=True))
 grammar.explicit_param.set_parse_action(lambda r: Param(r[0], r[1][0]))
-grammar.function_type.set_parse_action(lambda l, r: FunctionType(l, r[0], r[1][0]))
-grammar.function.set_parse_action(lambda l, r: Function(l, r[0], r[1][0]))
+grammar.function_type.set_parse_action(
+    lambda l, r: FunctionType(l, r[0][0], r[0][1][0])
+)
+grammar.function.set_parse_action(lambda l, r: Function(l, r[0][0], r[0][1][0]))
 grammar.call.set_parse_action(
-    lambda l, r: reduce(lambda a, b: Call(l, a, b[0]), r[1:], r[0][0])
+    lambda l, r: reduce(lambda a, b: Call(l, a, b), r[0][1:], r[0][0])
 )
 grammar.definition.set_parse_action(
     lambda r: Declaration(r[0].loc, r[0].name, list(r[1]), r[2][0], r[3][0])
 )
-grammar.declaration.set_parse_action(lambda r: r[0])
 
 
 class DuplicateVariableError(Exception): ...

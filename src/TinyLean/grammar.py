@@ -2,47 +2,49 @@ from pyparsing import *
 
 COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
-DEF, INDUCTIVE = map(lambda w: Suppress(Keyword(w)), "def inductive".split())
+DEF, INDUCTIVE, TYPE_ = map(
+    lambda w: Suppress(Keyword(w)), "def inductive Type".split()
+)
 
 ASSIGN, ARROW, FUN, TO = map(
     lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split()
 )
 
 LPAREN, RPAREN, LBRACE, RBRACE, COLON = map(Suppress, "(){}:")
+inline_one_or_more = lambda e: OneOrMore(Opt(Suppress(White(" \t\r"))) + e)
 
-IDENT = unicode_set.identifier().set_name("identifier")
+IDENT = unicode_set.identifier().set_name("IDENT")
 
 # NOTE: a hack for future set_parse_action
-expr, REFERENCE, TYPE, call, paren_expr = map(
+expr, function_type, function, REF, TYPE, call, paren_expr = map(
     lambda n: Forward().set_name(n),
-    "expression,reference,type,function call,parenthesized expression".split(","),
+    "expr function_type function REF TYPE call paren_expr".split(),
 )
 
+expr << Group(function_type | function | call | paren_expr | TYPE | REF)
+
 annotated = IDENT + COLON + expr
-implicit_param = (LBRACE + annotated + RBRACE).set_name("implicit parameter")
-explicit_param = (LPAREN + annotated + RPAREN).set_name("explicit parameter")
-param = implicit_param | explicit_param
+implicit_param = (LBRACE + annotated + RBRACE).set_name("implicit_param")
+explicit_param = (LPAREN + annotated + RPAREN).set_name("explicit_param")
 
-function_type = (param + ARROW + expr).set_name("function type")
-function = (FUN + IDENT + TO + expr).set_name("function")
-
-expr << Group(function_type | function | call | paren_expr | TYPE | REFERENCE)
-callee = Group(REFERENCE | paren_expr)
-arg = Group(TYPE | REFERENCE | paren_expr)
-call << (callee + OneOrMore(Opt(Suppress(White(" \t\r"))) + arg)).leave_whitespace()
-REFERENCE << IDENT.copy()  # NOTE: should keep unknown for rules that depend on this
-TYPE << Keyword("Type")  # NOTE: ditto
-paren_expr << LPAREN + expr + RPAREN  # NOTE: ditto
+function_type << Group((implicit_param | explicit_param) + ARROW + expr)
+function << Group(FUN + IDENT + TO + expr)
+callee = REF | paren_expr
+arg = TYPE | REF | paren_expr
+call << Group(callee + inline_one_or_more(arg)).leave_whitespace()
+paren_expr << Group(LPAREN + expr + RPAREN)
+TYPE << Group(TYPE_)
+REF << Group(IDENT)
 
 definition = (
     DEF
-    + REFERENCE
+    + REF
     + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
     + COLON  # TODO: optional return type
     + expr
     + ASSIGN
     + expr
 ).set_name("definition")
-declaration = Group(definition).set_name("declaration")
+declaration = definition.set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
