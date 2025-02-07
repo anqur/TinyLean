@@ -125,11 +125,12 @@ class Inliner:
     def apply(self, f: IR, *args: IR):
         ret = f
         for x in args:
-            match f:
+            match ret:
                 case Fn(p, b):
                     ret = self.run_with(p.name, x, b)
-                case _:
-                    ret = Call(ret, x)
+                    continue
+            # FIXME: Wrap `ret` with a function call if we really need to.
+            raise InternalCompilerError(ret)  # pragma: no cover
         return ret
 
     def _param(self, p: Param[IR]):

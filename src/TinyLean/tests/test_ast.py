@@ -205,6 +205,13 @@ class TestNameResolver(TestCase):
         self.assertEqual(x.param.id, callee.name.id)
         self.assertEqual(y.param.id, arg.name.id)
 
+    def test_resolve_expr_function_shadowed(self):
+        x = cast(ast.Fn, resolve_expr("fun a => fun a => a"))
+        y = cast(ast.Fn, x.body)
+        z = cast(ast.Ref, y.body)
+        self.assertNotEqual(x.param.id, z.name.id)
+        self.assertEqual(y.param.id, z.name.id)
+
     def test_resolve_expr_function_failed(self):
         with self.assertRaises(ast.UndefinedVariableError) as e:
             resolve_expr("fun a => b")

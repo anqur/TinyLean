@@ -177,8 +177,8 @@ class TypeChecker:
                 try:
                     d = self.globals[v.id]
                     return ir.definition_value(d), ir.signature_type(d)
-                except KeyError:
-                    raise InternalCompilerError(v)  # pragma: no cover
+                except KeyError:  # pragma: no cover
+                    raise InternalCompilerError(v)
             case FnType(_, p, b):
                 p_typ = self.check(p.type, ir.Type())
                 inferred_p = Param(p.name, p_typ, p.implicit)
