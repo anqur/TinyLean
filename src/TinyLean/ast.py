@@ -40,8 +40,8 @@ grammar.IDENT.set_parse_action(lambda r: Ident.fresh(r[0]))
 grammar.TYPE.set_parse_action(lambda l, r: Type(l))
 grammar.REF.set_parse_action(lambda l, r: Reference(l, r[0][0]))
 grammar.paren_expr.set_parse_action(lambda r: r[0][0])
-grammar.implicit_param.set_parse_action(lambda r: Param(r[0], r[1][0], implicit=True))
-grammar.explicit_param.set_parse_action(lambda r: Param(r[0], r[1][0]))
+grammar.implicit_param.set_parse_action(lambda r: Param(r[0], r[1][0], True))
+grammar.explicit_param.set_parse_action(lambda r: Param(r[0], r[1][0], False))
 grammar.function_type.set_parse_action(
     lambda l, r: FunctionType(l, r[0][0], r[0][1][0])
 )
@@ -72,7 +72,7 @@ class NameResolver:
         params = []
         for p in d.params:
             self._insert_local(p.name)
-            params.append(Param(p.name, self.expr(p.type)))
+            params.append(Param(p.name, self.expr(p.type), p.implicit))
         ret = self.expr(d.return_type)
         body = self.expr(d.definition)
 
@@ -98,7 +98,7 @@ class NameResolver:
             case FunctionType(loc, p, body):
                 typ = self.expr(p.type)
                 b = self._guard_local(p.name, body)
-                return FunctionType(loc, Param(p.name, typ), b)
+                return FunctionType(loc, Param(p.name, typ, p.implicit), b)
             case Function(loc, v, body):
                 b = self._guard_local(v, body)
                 return Function(loc, v, b)
@@ -143,7 +143,7 @@ class TypeChecker:
         params = []
         for p in d.params:
             typ = self.check(p.type, ir.Type())
-            params.append(Param(p.name, typ))
+            params.append(Param(p.name, typ, p.implicit))
             self.locals[p.name.id] = typ
         ret = self.check(d.return_type, ir.Type())
         body = self.check(d.definition, ret)
@@ -157,7 +157,7 @@ class TypeChecker:
                 match ir.inline(typ):
                     case ir.FunctionType(p, b):
                         body_type = ir.Inliner().run_with(p.name, ir.Reference(v), b)
-                        param = Param(v, p.type)
+                        param = Param(v, p.type, p.implicit)
                         return ir.Function(
                             param, self._check_with(param, body, body_type)
                         )
@@ -185,7 +185,7 @@ class TypeChecker:
                     raise AssertionError(f"impossible: {repr(v)}")
             case FunctionType(_, p, b):
                 p_typ = self.check(p.type, ir.Type())
-                inferred_p = Param(p.name, p_typ)
+                inferred_p = Param(p.name, p_typ, p.implicit)
                 b_val = self._check_with(inferred_p, b, ir.Type())
                 return ir.FunctionType(inferred_p, b_val), ir.Type()
             case Call(_, f, x):

@@ -27,10 +27,11 @@ class Ident:
 class Param[T]:
     name: Ident
     type: T
-    implicit: bool = False
+    implicit: bool
 
     def __str__(self):
-        return f"({self.name}: {self.type})"
+        l, r = "{}" if self.implicit else "()"
+        return f"{l}{self.name}: {self.type}{r}"
 
 
 @dataclass(frozen=True)

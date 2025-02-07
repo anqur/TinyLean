@@ -73,7 +73,7 @@ class Renamer:
     def _param(self, p: Param[IR]):
         name = Ident.fresh(p.name.text)
         self.locals[p.name.id] = name.id
-        return Param(name, self.run(p.type))
+        return Param(name, self.run(p.type), p.implicit)
 
 
 rename = lambda v: Renamer().run(v)
@@ -93,9 +93,9 @@ class Inliner:
 
     def run(self, v: IR) -> IR:
         match v:
-            case Reference(v):
+            case Reference(n):
                 try:
-                    return self.run(self.env[v.id])
+                    return self.run(self.env[n.id])
                 except KeyError:
                     return v
             case Call(f, x):
@@ -129,7 +129,7 @@ class Inliner:
         return ret
 
     def _param(self, p: Param[IR]):
-        return Param(p.name, self.run(p.type))
+        return Param(p.name, self.run(p.type), p.implicit)
 
 
 inline = lambda v: Inliner().run(v)

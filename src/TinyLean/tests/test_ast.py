@@ -271,3 +271,31 @@ class TestTypeChecker(TestCase):
         self.assertEqual(0, loc)
         self.assertEqual("Type", want)
         self.assertEqual("function", got)
+
+    def test_check_expr_function(self):
+        check_expr(
+            "fun a => a",
+            ir.FunctionType(Param(Ident.fresh("a"), ir.Type(), False), ir.Type()),
+        )
+
+    def test_check_on_infer(self):
+        check_expr("Type", ir.Type())
+
+    def test_check_on_infer_failed(self):
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            check_expr("(a: Type) -> a", ir.Reference(Ident.fresh("a")))
+        want, loc, got = e.exception.args
+        self.assertEqual(0, loc)
+        self.assertEqual("a", want)
+        self.assertEqual("Type", got)
+
+    def test_infer_type(self):
+        v, ty = infer_expr("Type")
+        self.assertEqual(ir.Type, type(v))
+        self.assertEqual(ir.Type, type(ty))
+
+    def test_infer_function_type(self):
+        v, ty = infer_expr("{a: Type} -> a")
+        self.assertEqual(ir.FunctionType, type(v))
+        self.assertEqual("{a: Type} → a", str(v))
+        self.assertEqual(ir.Type, type(ty))
