@@ -2,7 +2,7 @@ from typing import ClassVar
 from dataclasses import dataclass
 
 
-class InternalCompilerError(Exception): ...
+class InternalCompilerError(Exception): ...  # pragma: no cover
 
 
 @dataclass(frozen=True)

@@ -37,9 +37,6 @@ class Fn(IR):
     param: Param[IR]
     body: IR
 
-    def __str__(self):
-        return f"λ {self.param} ↦ {self.body}"
-
 
 @dataclass(frozen=True)
 class Call(IR):
@@ -56,9 +53,9 @@ class Renamer:
 
     def run(self, v: IR) -> IR:
         match v:
-            case Ref(v):
+            case Ref(n):
                 try:
-                    return Ref(Ident(self.locals[v.id], v.text))
+                    return Ref(Ident(self.locals[n.id], n.text))
                 except KeyError:
                     return v
             case Call(f, x):
@@ -99,7 +96,7 @@ class Inliner:
         match v:
             case Ref(n):
                 try:
-                    return self.run(self.env[n.id])
+                    return self.run(rename(self.env[n.id]))
                 except KeyError:
                     return v
             case Call(f, x):
@@ -128,9 +125,8 @@ class Inliner:
             match ret:
                 case Fn(p, b):
                     ret = self.run_with(p.name, x, b)
-                    continue
-            # FIXME: Wrap `ret` with a function call if we really need to.
-            raise InternalCompilerError(ret)  # pragma: no cover
+                case _:
+                    ret = Call(ret, x)
         return ret
 
     def _param(self, p: Param[IR]):
@@ -144,7 +140,7 @@ inline = lambda v: Inliner().run(v)
 class Converter:
     globals: dict[int, Declaration[IR]]
 
-    def eq(self, lhs: IR, rhs: IR) -> bool:
+    def eq(self, lhs: IR, rhs: IR):
         match lhs, rhs:
             case Ref(x), Ref(y):
                 return x.id == y.id and x.text == y.text

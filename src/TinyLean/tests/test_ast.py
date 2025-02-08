@@ -350,3 +350,70 @@ class TestTypeChecker(TestCase):
         self.assertEqual(87, loc)
         self.assertEqual("Type", str(want))
         self.assertEqual("(a: Type) → Type", str(got))
+
+
+def nat_to_int(v: ir.IR):
+    n = 0
+    while True:
+        if isinstance(v, ir.Fn):
+            v = v.body
+        else:
+            break
+    while True:
+        if isinstance(v, ir.Call):
+            assert isinstance(v.callee, ir.Ref)
+            assert v.callee.name.text == "S"
+            v = v.arg
+            n += 1
+        else:
+            assert isinstance(v, ir.Ref)
+            assert v.name.text == "Z"
+            break
+    return n
+
+
+class TestTheoremProving(TestCase):
+    def test_nat(self):
+        _, _, _, _3, _6, _9 = check(
+            """
+            def Nat: Type :=
+                (T: Type) -> (S: (n: T) -> T) -> (Z: T) -> T
+
+            def add (a: Nat) (b: Nat): Nat :=
+                fun T => fun S => fun Z => (a T S) (b T S Z)
+
+            def mul (a: Nat) (b: Nat): Nat :=
+                fun T => fun S => fun Z => (a T) (b T S) Z
+
+            def _3: Nat := fun T => fun S => fun Z => S (S (S Z))
+
+            def _6: Nat := add _3 _3
+
+            def _9: Nat := mul _3 _3
+            """
+        )
+        self.assertEqual(3, nat_to_int(_3.body))
+        self.assertEqual(6, nat_to_int(_6.body))
+        self.assertEqual(9, nat_to_int(_9.body))
+
+    def test_leibniz_equality(self):
+        check(
+            """
+            def Eq (T: Type) (a: T) (b: T): Type :=
+                (p: (v: T) -> Type) -> (pa: p a) -> p b
+
+            def refl (T: Type) (a: T): Eq T a a :=
+                fun p => fun pa => pa
+
+            def sym (T: Type) (a: T) (b: T) (p: Eq T a b): Eq T b a :=
+                (p (fun b => Eq T b a)) (refl T a)
+
+            def A: Type := Type
+
+            def B: Type := Type
+
+            def lemma: Eq Type A B := refl Type A
+
+            def theorem (p: Eq Type A B): Eq Type B A := sym Type A B lemma
+            """
+        )

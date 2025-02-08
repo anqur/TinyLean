@@ -145,9 +145,9 @@ class TypeChecker:
             self.locals[p.name.id] = typ
         ret = self.check(d.ret, ir.Type())
         body = self.check(d.body, ret)
-        checked_def = Declaration(d.loc, d.name, params, ret, body)
-        self.globals[d.name.id] = checked_def
-        return checked_def
+        checked = Declaration(d.loc, d.name, params, ret, body)
+        self.globals[d.name.id] = checked
+        return checked
 
     def check(self, n: Node, typ: ir.IR) -> ir.IR:
         match n:
@@ -201,5 +201,8 @@ class TypeChecker:
     def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
         self.locals[p.name.id] = p.type
         ret = self.check(n, typ)
-        del self.locals[p.name.id]  # FIXME: might fail, will catch it if we know why
+        try:
+            del self.locals[p.name.id]
+        except KeyError:
+            pass
         return ret
