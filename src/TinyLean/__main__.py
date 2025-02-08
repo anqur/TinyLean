@@ -2,7 +2,6 @@ import sys
 
 import pyparsing
 
-
 from . import grammar, ast
 
 infile = lambda: sys.argv[1]
