@@ -111,11 +111,13 @@ class NameResolver:
         ret = self.expr(node)
         if old:
             self._insert_local(old)
-        else:
+        elif not v.is_unbound():
             del self.locals[v.text]
         return ret
 
     def _insert_local(self, v: Ident):
+        if v.is_unbound():
+            return None
         old = None
         try:
             old = self.locals[v.text]

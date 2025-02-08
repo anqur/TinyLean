@@ -233,6 +233,13 @@ class TestNameResolver(TestCase):
         self.assertEqual(26, loc)
         self.assertEqual("c", n.text)
 
+    def test_resolve_expr_function_type_unbound_failed(self):
+        with self.assertRaises(ast.UndefinedVariableError) as e:
+            resolve_expr("(_: Type) -> _")
+        n, loc = e.exception.args
+        self.assertEqual(13, loc)
+        self.assertEqual("_", n.text)
+
     def test_resolve_program(self):
         resolve(
             """
@@ -240,6 +247,18 @@ class TestNameResolver(TestCase):
             def f1 (a: Type): Type := f0 a 
             """
         )
+
+    def test_resolve_program_unbound_failed(self):
+        with self.assertRaises(ast.UndefinedVariableError) as e:
+            resolve(
+                """
+                def _: Type := Type
+                def a: Type := _
+                """
+            )
+        n, loc = e.exception.args
+        self.assertEqual(68, loc)
+        self.assertEqual("_", n.text)
 
     def test_resolve_program_failed(self):
         with self.assertRaises(ast.UndefinedVariableError) as e:

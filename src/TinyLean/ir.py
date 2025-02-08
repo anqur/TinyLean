@@ -43,9 +43,6 @@ class Call(IR):
     callee: IR
     arg: IR
 
-    def __str__(self):
-        return f"({self.callee} {self.arg})"
-
 
 @dataclass(frozen=True)
 class Renamer:
