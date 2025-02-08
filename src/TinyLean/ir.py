@@ -43,6 +43,9 @@ class Call(IR):
     callee: IR
     arg: IR
 
+    def __str__(self):
+        return f"({self.callee} {self.arg})"
+
 
 @dataclass(frozen=True)
 class Renamer:
@@ -128,9 +131,6 @@ class Inliner:
 
     def _param(self, p: Param[IR]):
         return Param(p.name, self.run(p.type), p.implicit)
-
-
-inline = lambda v: Inliner().run(v)
 
 
 @dataclass(frozen=True)

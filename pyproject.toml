@@ -38,4 +38,4 @@ dependencies = [
 "Source" = "https://github.com/anqurvanillapy/TinyLean"
 
 [project.scripts]
-tinylean = "TinyLean:main"
+tinylean = "TinyLean:__main__:main"

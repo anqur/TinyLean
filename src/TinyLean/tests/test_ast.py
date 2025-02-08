@@ -436,3 +436,22 @@ class TestTheoremProving(TestCase):
             def theorem (p: Eq Type A B): Eq Type B A := sym Type A B lemma
             """
         )
+
+    def test_leibniz_equality_failed(self):
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            check(
+                """
+                def Eq (T: Type) (a: T) (b: T): Type := (p: (v: T) -> Type) -> (pa: p a) -> p b
+                def refl (T: Type) (a: T): Eq T a a := fun p => fun pa => pa
+                def A: Type := Type
+                def B: Type := Type
+                def _: Eq Type A B := refl Type refl
+                /-                              ^~~^ failed here -/
+                """
+            )
+        want, got, loc = e.exception.args
+        self.assertEqual(294, loc)
+        self.assertEqual("Type", str(want))
+        self.assertEqual(
+            "(T: Type) → (a: T) → (p: (v: T) → Type) → (pa: (p a)) → (p a)", str(got)
+        )

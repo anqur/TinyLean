@@ -42,7 +42,3 @@ class Declaration[T]:
     params: list[Param[T]]
     ret: T
     body: T
-
-
-def main():
-    print("Hello, TinyLean!")

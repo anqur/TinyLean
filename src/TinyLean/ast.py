@@ -154,7 +154,7 @@ class TypeChecker:
     def check(self, n: Node, typ: ir.IR) -> ir.IR:
         match n:
             case Fn(loc, v, body):
-                match ir.inline(typ):
+                match ir.Inliner().run(typ):
                     case ir.FnType(p, b):
                         body_type = ir.Inliner().run_with(p.name, ir.Ref(v), b)
                         param = Param(v, p.type, p.implicit)
@@ -163,8 +163,8 @@ class TypeChecker:
                         raise TypeMismatchError(str(want), "function", loc)
             case _:
                 val, got = self.infer(n)
-                got = ir.inline(got)
-                want = ir.inline(typ)
+                got = ir.Inliner().run(got)
+                want = ir.Inliner().run(typ)
                 if ir.Converter(self.globals).eq(got, want):
                     return val
                 raise TypeMismatchError(str(want), str(got), n.loc)
