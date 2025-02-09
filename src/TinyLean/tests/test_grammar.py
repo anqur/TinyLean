@@ -106,3 +106,6 @@ Footer.
 
     def test_parse_expr_placeholder(self):
         parse(expr, "{a: Type} -> (b: Type) -> _")
+
+    def test_parse_definition_no_return(self):
+        parse(definition, "def a := Type")

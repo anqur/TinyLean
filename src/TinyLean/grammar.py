@@ -37,23 +37,10 @@ TYPE << Group(TYPE_)
 PLACEHOLDER << Group(UNDER)
 REF << Group(IDENT)
 
-definition = (
-    DEF
-    + REF
-    + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
-    + COLON  # TODO: optional return type
-    + expr
-    + ASSIGN
-    + expr
-).set_name("definition")
-example = (
-    EXAMPLE
-    + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
-    + COLON
-    + expr
-    + ASSIGN
-    + expr
-).set_name("example")
+return_type = Opt(COLON + expr)
+params = Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
+definition = (DEF + REF + params + return_type + ASSIGN + expr).set_name("definition")
+example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
 declaration = (definition | example).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")

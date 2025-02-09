@@ -206,6 +206,21 @@ class TestParser(TestCase):
         self.assertEqual(ast.Placeholder, type(x.body))
         self.assertEqual(10, x.body.loc)
 
+    def test_parse_return_type(self):
+        x = parse(grammar.return_type, ": Type")[0]
+        self.assertEqual(ast.Type, type(x))
+        self.assertEqual(2, x.loc)
+
+    def test_parse_return_placeholder(self):
+        x = parse(grammar.return_type, "")[0]
+        self.assertEqual(ast.Placeholder, type(x))
+        self.assertFalse(x.is_user)
+
+    def test_parse_definition_no_return(self):
+        x = parse(grammar.definition, "def a := Type")[0]
+        self.assertEqual(ast.Placeholder, type(x.ret))
+        self.assertFalse(x.ret.is_user)
+
 
 resolve = lambda s: s | ast.Parser() | ast.NameResolver()
 resolve_md = lambda s: s | ast.Parser(True) | ast.NameResolver()
