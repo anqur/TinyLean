@@ -184,7 +184,7 @@ class TypeChecker:
                 val, got = self.infer(n)
                 got = ir.Inliner().run(got)
                 want = ir.Inliner().run(typ)
-                if ir.Converter(self.globals).eq(got, want):
+                if ir.Converter().eq(got, want):
                     return val
                 raise TypeMismatchError(str(want), str(got), n.loc)
 

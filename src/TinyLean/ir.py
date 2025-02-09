@@ -47,6 +47,16 @@ class Call(IR):
         return f"({self.callee} {self.arg})"
 
 
+@dataclass(frozen=True)  # TODO
+class Placeholder(IR):  # pragma: no cover
+    is_user: bool
+    name: Ident
+
+    def __str__(self):
+        t = "u" if self.is_user else "m"
+        return f"?{t}.{self.name.id}"
+
+
 @dataclass(frozen=True)
 class Renamer:
     locals: dict[int, int] = field(default_factory=dict)
@@ -133,8 +143,6 @@ class Inliner:
 
 @dataclass(frozen=True)
 class Converter:
-    globals: dict[int, Declaration[IR]]
-
     def eq(self, lhs: IR, rhs: IR):
         match lhs, rhs:
             case Ref(x), Ref(y):
