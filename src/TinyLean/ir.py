@@ -54,10 +54,9 @@ class Renamer:
     def run(self, v: IR) -> IR:
         match v:
             case Ref(n):
-                try:
+                if n.id in self.locals:
                     return Ref(Ident(self.locals[n.id], n.text))
-                except KeyError:
-                    return v
+                return v
             case Call(f, x):
                 return Call(self.run(f), self.run(x))
             case Fn(p, b):
@@ -95,10 +94,9 @@ class Inliner:
     def run(self, v: IR) -> IR:
         match v:
             case Ref(n):
-                try:
+                if n.id in self.env:
                     return self.run(rename(self.env[n.id]))
-                except KeyError:
-                    return v
+                return v
             case Call(f, x):
                 f = self.run(f)
                 x = self.run(x)

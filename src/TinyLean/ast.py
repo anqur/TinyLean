@@ -85,14 +85,11 @@ class NameResolver:
     def expr(self, node: Node) -> Node:
         match node:
             case Ref(loc, v):
-                try:
+                if v.text in self.locals:
                     return Ref(loc, self.locals[v.text])
-                except KeyError:
-                    pass
-                try:
+                if v.text in self.globals:
                     return Ref(loc, self.globals[v.text])
-                except KeyError:
-                    raise UndefinedVariableError(v, loc)
+                raise UndefinedVariableError(v, loc)
             case FnType(loc, p, body):
                 typ = self.expr(p.type)
                 b = self._guard_local(p.name, body)
@@ -119,10 +116,8 @@ class NameResolver:
         if v.is_unbound():
             return None
         old = None
-        try:
+        if v.text in self.locals:
             old = self.locals[v.text]
-        except KeyError:
-            pass
         self.locals[v.text] = v
         return old
 
@@ -172,15 +167,12 @@ class TypeChecker:
     def infer(self, n: Node) -> tuple[ir.IR, ir.IR]:
         match n:
             case Ref(_, v):
-                try:
+                if v.id in self.locals:
                     return ir.Ref(v), self.locals[v.id]
-                except KeyError:
-                    pass
-                try:
+                if v.id in self.globals:
                     d = self.globals[v.id]
                     return ir.definition_value(d), ir.signature_type(d)
-                except KeyError:  # pragma: no cover
-                    raise InternalCompilerError(v)
+                raise InternalCompilerError(v)  # pragma: no cover
             case FnType(_, p, b):
                 p_typ = self.check(p.type, ir.Type())
                 inferred_p = Param(p.name, p_typ, p.implicit)
@@ -203,8 +195,6 @@ class TypeChecker:
     def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
         self.locals[p.name.id] = p.type
         ret = self.check(n, typ)
-        try:
+        if p.name.id in self.locals:
             del self.locals[p.name.id]
-        except KeyError:
-            pass
         return ret
