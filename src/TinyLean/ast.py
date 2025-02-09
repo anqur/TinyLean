@@ -55,6 +55,9 @@ grammar.call.set_parse_action(
 grammar.definition.set_parse_action(
     lambda r: Declaration(r[0].loc, r[0].name, list(r[1]), r[2][0], r[3][0])
 )
+grammar.example.set_parse_action(
+    lambda l, r: Declaration(l, Ident.fresh("_"), list(r[0]), r[1][0], r[2][0])
+)
 
 
 @dataclass(frozen=True)

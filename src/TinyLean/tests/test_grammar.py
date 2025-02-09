@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from . import parse
-from ..grammar import definition, program, expr, markdown
+from ..grammar import definition, program, expr, markdown, example
 
 
 class TestGrammar(TestCase):
@@ -100,6 +100,9 @@ Footer.
             )
         )
         self.assertEqual(1, len(results))
+
+    def test_parse_example(self):
+        parse(example, "example (a: Type): Type := a")
 
     def test_parse_expr_placeholder(self):
         parse(expr, "{a: Type} -> (b: Type) -> _")

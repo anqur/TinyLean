@@ -2,8 +2,8 @@ from pyparsing import *
 
 COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
-DEF, INDUCTIVE, TYPE_ = map(
-    lambda w: Suppress(Keyword(w)), "def inductive Type".split()
+DEF, EXAMPLE, INDUCTIVE, TYPE_ = map(
+    lambda w: Suppress(Keyword(w)), "def example inductive Type".split()
 )
 
 ASSIGN, ARROW, FUN, TO = map(
@@ -46,7 +46,15 @@ definition = (
     + ASSIGN
     + expr
 ).set_name("definition")
-declaration = definition.set_name("declaration")
+example = (
+    EXAMPLE
+    + Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
+    + COLON
+    + expr
+    + ASSIGN
+    + expr
+).set_name("example")
+declaration = (definition | example).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
 

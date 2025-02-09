@@ -10,6 +10,8 @@ An identity function in TinyLean:
 
 ```lean
 def id {T: Type} (a: T): T := a
+
+example: Type := id Type
 ```
 
 ## License

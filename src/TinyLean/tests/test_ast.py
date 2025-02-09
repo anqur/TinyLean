@@ -158,7 +158,7 @@ class TestParser(TestCase):
 
     def test_parse_definition(self):
         x = parse(grammar.definition, "  def f {a: Type} (b: Type): Type := a")[0]
-        self.assertEqual(ast.Declaration, type(x))
+        self.assertEqual(Declaration, type(x))
         self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
         self.assertEqual(list, type(x.params))
@@ -189,6 +189,15 @@ class TestParser(TestCase):
         self.assertEqual("a", x[0].name.text)
         self.assertEqual(Declaration, type(x[1]))
         self.assertEqual("b", x[1].name.text)
+
+    def test_parse_example(self):
+        x = parse(grammar.example, "  example: Type := Type")[0]
+        self.assertEqual(Declaration, type(x))
+        self.assertEqual(2, x.loc)
+        self.assertTrue(x.name.is_unbound())
+        self.assertEqual(0, len(x.params))
+        self.assertEqual(ast.Type, type(x.ret))
+        self.assertEqual(ast.Type, type(x.body))
 
     def test_parse_placeholder(self):
         x = parse(grammar.function, " fun _ => _")[0]
@@ -477,3 +486,11 @@ Footer.
         with open(p) as f:
             results = ast.check_string(f.read(), True)
         self.assertGreater(len(results), 0)
+
+    def test_example(self):
+        ast.check_string(
+            """
+            def T: Type := Type
+            example: Type := T
+            """
+        )
