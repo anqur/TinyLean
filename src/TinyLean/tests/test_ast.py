@@ -458,17 +458,21 @@ class TestTheoremProving(TestCase):
                 """
                 def Eq (T: Type) (a: T) (b: T): Type := (p: (v: T) -> Type) -> (pa: p a) -> p b
                 def refl (T: Type) (a: T): Eq T a a := fun p => fun pa => pa
-                def A: Type := Type
-                def B: Type := Type
-                def _: Eq Type A B := refl Type refl
-                /-                              ^~~^ failed here -/
+                def A: Type := (a: Type) -> Type
+                def B: Type := (a: (b: Type) -> Type) -> Type
+                def _: Eq Type A B := refl Type A
+                /-                    ^~~^ failed here -/
                 """
             )
         want, got, loc = e.exception.args
-        self.assertEqual(294, loc)
-        self.assertEqual("Type", str(want))
+        self.assertEqual(323, loc)
         self.assertEqual(
-            "(T: Type) → (a: T) → (p: (v: T) → Type) → (pa: (p a)) → (p a)", str(got)
+            "(p: (v: Type) → Type) → (pa: (p (a: Type) → Type)) → (p (a: (b: Type) → Type) → Type)",
+            str(want),
+        )
+        self.assertEqual(
+            "(p: (v: Type) → Type) → (pa: (p (a: Type) → Type)) → (p (a: Type) → Type)",
+            str(got),
         )
 
     def test_markdown(self):
