@@ -57,6 +57,18 @@ grammar.definition.set_parse_action(
 )
 
 
+@dataclass(frozen=True)
+class Parser:
+    is_markdown: bool = False
+
+    def __ror__(self, s: str):
+        return (
+            list(map(lambda r: r[0][0], grammar.markdown.scan_string(s)))
+            if self.is_markdown
+            else grammar.program.parse_string(s, parse_all=True)
+        )
+
+
 class DuplicateVariableError(Exception): ...
 
 
@@ -68,7 +80,7 @@ class NameResolver:
     locals: dict[str, Ident] = field(default_factory=dict)
     globals: dict[str, Ident] = field(default_factory=dict)
 
-    def run(self, decls: list[Declaration[Node]]):
+    def __ror__(self, decls: list[Declaration[Node]]):
         return [self.decl(d) for d in decls]
 
     def decl(self, d: Declaration[Node]):
@@ -135,7 +147,7 @@ class TypeChecker:
     globals: dict[int, Declaration[ir.IR]] = field(default_factory=dict)
     locals: dict[int, ir.IR] = field(default_factory=dict)
 
-    def run(self, ds: list[Declaration[Node]]):
+    def __ror__(self, ds: list[Declaration[Node]]):
         return [self._run(d) for d in ds]
 
     def _run(self, d: Declaration[Node]) -> Declaration[ir.IR]:
@@ -203,3 +215,7 @@ class TypeChecker:
         if p.name.id in self.locals:
             del self.locals[p.name.id]
         return ret
+
+
+def check_string(text: str, is_markdown=False):
+    return text | Parser(is_markdown) | NameResolver() | TypeChecker()
