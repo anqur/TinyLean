@@ -4,6 +4,14 @@
 
 Tiny theorem prover in Python, with syntax like Lean 4.
 
+## Tour
+
+An identity function in TinyLean:
+
+```lean
+def id {T: Type} (a: T): T := a
+```
+
 ## License
 
 MIT

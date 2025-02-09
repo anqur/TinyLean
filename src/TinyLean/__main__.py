@@ -5,27 +5,36 @@ import pyparsing
 
 from . import grammar, ast
 
+
+def check_string(s: str, is_markdown=False):
+    return ast.TypeChecker().run(
+        ast.NameResolver().run(
+            list(map(lambda r: r[0][0], grammar.markdown.scan_string(s)))
+            if is_markdown
+            else grammar.program.parse_string(s, parse_all=True)
+        )
+    )
+
+
 infile = lambda: Path(sys.argv[1])
 
 
-def fatal(m: str | Exception):
+def fatal(m: str | Exception):  # pragma: no cover
     print(m)
     sys.exit(1)
 
 
-def fatal_on(text: str, loc: int, m: str):
+def fatal_on(text: str, loc: int, m: str):  # pragma: no cover
     ln = pyparsing.util.lineno(loc, text)
     col = pyparsing.util.col(loc, text)
     fatal(f"{infile()}:{ln}:{col}: {m}")
 
 
-def main():
+def main():  # pragma: no cover
     try:
         with open(infile()) as f:
             text = f.read()
-            parsed = grammar.program.parse_string(text, parse_all=True)
-            resolved = ast.NameResolver().run(parsed)
-            ast.TypeChecker().run(resolved)
+            check_string(text, infile().suffix == ".md")
     except IndexError:
         fatal("usage: tinylean FILE")
     except OSError as e:
@@ -43,5 +52,5 @@ def main():
         fatal_on(text, loc, f"type mismatch:\nwant:\n  {want}\n\ngot:\n  {got}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

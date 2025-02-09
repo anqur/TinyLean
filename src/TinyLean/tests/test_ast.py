@@ -1,8 +1,10 @@
+from pathlib import Path
 from typing import cast
 from unittest import TestCase
 
 from . import parse
 from .. import ast, Ident, grammar, Param, Declaration, ir
+from ..__main__ import check_string
 
 
 class TestIdent(TestCase):
@@ -282,8 +284,6 @@ class TestNameResolver(TestCase):
         self.assertEqual("f0", n.text)
 
 
-check = lambda s: ast.TypeChecker().run(resolve(s))
-check_md = lambda s: ast.TypeChecker().run(resolve_md(s))
 check_expr = lambda s, t: ast.TypeChecker().check(resolve_expr(s), t)
 infer_expr = lambda s: ast.TypeChecker().infer(resolve_expr(s))
 
@@ -338,21 +338,21 @@ class TestTypeChecker(TestCase):
         self.assertEqual(ir.Type, type(ty))
 
     def test_check_program(self):
-        check("def a: Type := Type")
-        check("def f (a: Type): Type := a")
-        check("def f: (_: Type) -> Type := fun a => a")
-        check("def id (T: Type) (a: T): T := a")
+        check_string("def a: Type := Type")
+        check_string("def f (a: Type): Type := a")
+        check_string("def f: (_: Type) -> Type := fun a => a")
+        check_string("def id (T: Type) (a: T): T := a")
 
     def test_check_program_failed(self):
         with self.assertRaises(ast.TypeMismatchError) as e:
-            check("def id (a: Type): a := Type")
+            check_string("def id (a: Type): a := Type")
         want, got, loc = e.exception.args
         self.assertEqual(23, loc)
         self.assertEqual("a", str(want))
         self.assertEqual("Type", str(got))
 
     def test_check_program_call(self):
-        check(
+        check_string(
             """
             def f0 (a: Type): Type := a
             def f1: Type := f0 Type
@@ -362,7 +362,7 @@ class TestTypeChecker(TestCase):
 
     def test_check_program_call_failed(self):
         with self.assertRaises(ast.TypeMismatchError) as e:
-            check(
+            check_string(
                 """
                 def f0 (a: Type): Type := a
                 def f1 (a: Type): Type := f0
@@ -396,7 +396,7 @@ def nat_to_int(v: ir.IR):
 
 class TestTheoremProving(TestCase):
     def test_nat(self):
-        _, _, _, _3, _6, _9 = check(
+        _, _, _, _3, _6, _9 = check_string(
             """
             def Nat: Type :=
                 (T: Type) -> (S: (n: T) -> T) -> (Z: T) -> T
@@ -419,7 +419,7 @@ class TestTheoremProving(TestCase):
         self.assertEqual(9, nat_to_int(_9.body))
 
     def test_leibniz_equality(self):
-        check(
+        check_string(
             """
             def Eq (T: Type) (a: T) (b: T): Type :=
                 (p: (v: T) -> Type) -> (pa: p a) -> p b
@@ -442,7 +442,7 @@ class TestTheoremProving(TestCase):
 
     def test_leibniz_equality_failed(self):
         with self.assertRaises(ast.TypeMismatchError) as e:
-            check(
+            check_string(
                 """
                 def Eq (T: Type) (a: T) (b: T): Type := (p: (v: T) -> Type) -> (pa: p a) -> p b
                 def refl (T: Type) (a: T): Eq T a a := fun p => fun pa => pa
@@ -460,7 +460,7 @@ class TestTheoremProving(TestCase):
         )
 
     def test_markdown(self):
-        eq, refl, sym = check_md(
+        eq, refl, sym = check_string(
             """\
 # Heading 1
 
@@ -477,8 +477,15 @@ def sym (T: Type) (a: T) (b: T) (p: Eq T a b): Eq T b a := (p (fun b => Eq T b a
 ```
 
 Footer.
-            """
+            """,
+            True,
         )
         self.assertEqual("Eq", eq.name.text)
         self.assertEqual("refl", refl.name.text)
         self.assertEqual("sym", sym.name.text)
+
+    def test_readme(self):
+        p = Path(__file__).parent / ".." / ".." / ".." / ".github" / "README.md"
+        with open(p) as f:
+            results = check_string(f.read(), True)
+        self.assertGreater(len(results), 0)
