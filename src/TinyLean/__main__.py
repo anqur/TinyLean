@@ -1,10 +1,11 @@
 import sys
+from pathlib import Path
 
 import pyparsing
 
 from . import grammar, ast
 
-infile = lambda: sys.argv[1]
+infile = lambda: Path(sys.argv[1])
 
 
 def fatal(m: str | Exception):
@@ -27,7 +28,7 @@ def main():
             ast.TypeChecker().run(resolved)
     except IndexError:
         fatal("usage: tinylean FILE")
-    except FileNotFoundError as e:
+    except OSError as e:
         fatal(e)
     except pyparsing.exceptions.ParseException as e:
         fatal_on(text, e.loc, str(e).split("(at char")[0].strip())

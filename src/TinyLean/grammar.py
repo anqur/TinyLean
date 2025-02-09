@@ -48,3 +48,6 @@ definition = (
 declaration = definition.set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
+
+line_exact = lambda w: Suppress(AtLineStart(w) + LineEnd())
+markdown = line_exact(f"```lean") + program + line_exact("```")

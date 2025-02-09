@@ -1,9 +1,8 @@
 from typing import cast
 from unittest import TestCase
 
-from .. import ast, Ident, grammar, Param, Declaration, ir
-
 from . import parse
+from .. import ast, Ident, grammar, Param, Declaration, ir
 
 
 class TestIdent(TestCase):
@@ -191,8 +190,11 @@ class TestParser(TestCase):
         self.assertEqual("b", x[1].name.text)
 
 
-resolve_expr = lambda s: ast.NameResolver().expr(parse(grammar.expr, s)[0][0])
 resolve = lambda s: ast.NameResolver().run(list(parse(grammar.program, s)))
+resolve_md = lambda s: ast.NameResolver().run(
+    list(map(lambda r: r[0][0], grammar.markdown.scan_string(s)))
+)
+resolve_expr = lambda s: ast.NameResolver().expr(parse(grammar.expr, s)[0][0])
 
 
 class TestNameResolver(TestCase):
@@ -281,6 +283,7 @@ class TestNameResolver(TestCase):
 
 
 check = lambda s: ast.TypeChecker().run(resolve(s))
+check_md = lambda s: ast.TypeChecker().run(resolve_md(s))
 check_expr = lambda s, t: ast.TypeChecker().check(resolve_expr(s), t)
 infer_expr = lambda s: ast.TypeChecker().infer(resolve_expr(s))
 
@@ -455,3 +458,27 @@ class TestTheoremProving(TestCase):
         self.assertEqual(
             "(T: Type) → (a: T) → (p: (v: T) → Type) → (pa: (p a)) → (p a)", str(got)
         )
+
+    def test_markdown(self):
+        eq, refl, sym = check_md(
+            """\
+# Heading 1
+
+```lean
+def Eq (T: Type) (a: T) (b: T): Type := (p: (v: T) -> Type) -> (pa: p a) -> p b
+```
+
+```lean
+def refl (T: Type) (a: T): Eq T a a := fun p => fun pa => pa
+```
+
+```lean
+def sym (T: Type) (a: T) (b: T) (p: Eq T a b): Eq T b a := (p (fun b => Eq T b a)) (refl T a)
+```
+
+Footer.
+            """
+        )
+        self.assertEqual("Eq", eq.name.text)
+        self.assertEqual("refl", refl.name.text)
+        self.assertEqual("sym", sym.name.text)
