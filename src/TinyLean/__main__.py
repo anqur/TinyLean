@@ -16,7 +16,7 @@ def check_string(s: str, is_markdown=False):
     )
 
 
-infile = lambda: Path(sys.argv[1])
+infile = lambda: Path(sys.argv[1])  # pragma: no cover
 
 
 def fatal(m: str | Exception):  # pragma: no cover

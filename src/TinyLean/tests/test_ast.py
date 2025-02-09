@@ -191,6 +191,13 @@ class TestParser(TestCase):
         self.assertEqual(Declaration, type(x[1]))
         self.assertEqual("b", x[1].name.text)
 
+    def test_parse_placeholder(self):
+        x = parse(grammar.function, " fun _ => _")[0]
+        self.assertEqual(ast.Fn, type(x))
+        self.assertTrue(x.param.is_unbound())
+        self.assertEqual(ast.Placeholder, type(x.body))
+        self.assertEqual(10, x.body.loc)
+
 
 resolve = lambda s: ast.NameResolver().run(list(parse(grammar.program, s)))
 resolve_md = lambda s: ast.NameResolver().run(
@@ -237,13 +244,6 @@ class TestNameResolver(TestCase):
         self.assertEqual(26, loc)
         self.assertEqual("c", n.text)
 
-    def test_resolve_expr_function_type_unbound_failed(self):
-        with self.assertRaises(ast.UndefinedVariableError) as e:
-            resolve_expr("(_: Type) -> _")
-        n, loc = e.exception.args
-        self.assertEqual(13, loc)
-        self.assertEqual("_", n.text)
-
     def test_resolve_program(self):
         resolve(
             """
@@ -251,18 +251,6 @@ class TestNameResolver(TestCase):
             def f1 (a: Type): Type := f0 a 
             """
         )
-
-    def test_resolve_program_unbound_failed(self):
-        with self.assertRaises(ast.UndefinedVariableError) as e:
-            resolve(
-                """
-                def _: Type := Type
-                def a: Type := _
-                """
-            )
-        n, loc = e.exception.args
-        self.assertEqual(68, loc)
-        self.assertEqual("_", n.text)
 
     def test_resolve_program_failed(self):
         with self.assertRaises(ast.UndefinedVariableError) as e:
@@ -282,6 +270,9 @@ class TestNameResolver(TestCase):
         n, loc = e.exception.args
         self.assertEqual(58, loc)
         self.assertEqual("f0", n.text)
+
+    def test_resolve_expr_placeholder(self):
+        resolve_expr("{a: Type} -> (b: Type) -> _")
 
 
 check_expr = lambda s, t: ast.TypeChecker().check(resolve_expr(s), t)

@@ -36,8 +36,13 @@ class Call(Node):
     arg: Node
 
 
+@dataclass(frozen=True)
+class Placeholder(Node): ...
+
+
 grammar.IDENT.set_parse_action(lambda r: Ident.fresh(r[0]))
 grammar.TYPE.set_parse_action(lambda l, r: Type(l))
+grammar.PLACEHOLDER.set_parse_action(lambda l, r: Placeholder(l))
 grammar.REF.set_parse_action(lambda l, r: Ref(l, r[0][0]))
 grammar.paren_expr.set_parse_action(lambda r: r[0][0])
 grammar.implicit_param.set_parse_action(lambda r: Param(r[0], r[1][0], True))
@@ -99,7 +104,7 @@ class NameResolver:
                 return Fn(loc, v, b)
             case Call(loc, f, x):
                 return Call(loc, self.expr(f), self.expr(x))
-            case Type(_):
+            case Type(_) | Placeholder(_):
                 return node
         raise InternalCompilerError(node)  # pragma: no cover
 

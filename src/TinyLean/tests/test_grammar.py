@@ -100,3 +100,6 @@ Footer.
             )
         )
         self.assertEqual(1, len(results))
+
+    def test_parse_expr_placeholder(self):
+        parse(expr, "{a: Type} -> (b: Type) -> _")
