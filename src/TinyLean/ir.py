@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
-from functools import reduce
-from typing import cast
 
-from . import Ident, Param, Declaration, InternalCompilerError
+from . import Ident, Param, InternalCompilerError
 
 
 @dataclass(frozen=True)
@@ -84,17 +82,6 @@ class Renamer:
 
 
 rename = lambda v: Renamer().run(v)
-
-
-_ir = lambda t: cast(IR, t)
-
-
-def signature_type(d: Declaration[IR]) -> IR:
-    return rename(reduce(lambda a, p: _ir(FnType(p, a)), reversed(d.params), d.ret))
-
-
-def definition_value(d: Declaration[IR]) -> IR:
-    return rename(reduce(lambda a, p: _ir(Fn(p, a)), reversed(d.params), d.body))
 
 
 @dataclass(frozen=True)

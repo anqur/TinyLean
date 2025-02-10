@@ -197,7 +197,7 @@ class TypeChecker:
                     return ir.Ref(v), self.locals[v.id]
                 if v.id in self.globals:
                     d = self.globals[v.id]
-                    return ir.definition_value(d), ir.signature_type(d)
+                    return ir.rename(d.to_value(ir.Fn)), ir.rename(d.to_type(ir.FnType))
                 raise InternalCompilerError(v)  # pragma: no cover
             case FnType(_, p, b):
                 p_typ = self.check(p.type, ir.Type())
