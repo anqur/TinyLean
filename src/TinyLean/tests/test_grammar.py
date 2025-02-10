@@ -16,6 +16,7 @@ class TestGrammar(TestCase):
         parse(expr, "fun _ => Type")
         parse(expr, "λ _ ↦ Type")
         parse(expr, "fun a => fun b => a")
+        parse(expr, "fun a b => a")
 
     def test_parse_expr_call(self):
         parse(expr, "a b")

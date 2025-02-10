@@ -145,6 +145,17 @@ class TestParser(TestCase):
         self.assertEqual(ast.Ref, type(x.body.body.arg))
         self.assertEqual("b", x.body.body.arg.name.text)
 
+    def test_parse_function_multi(self):
+        x = parse(grammar.function, "  fun c d => c d")[0]
+        self.assertEqual(ast.Fn, type(x))
+        self.assertEqual(2, x.loc)
+        self.assertEqual(Ident, type(x.param))
+        self.assertEqual("c", x.param.text)
+        self.assertEqual(ast.Fn, type(x.body))
+        self.assertEqual(2, x.body.loc)
+        self.assertEqual(Ident, type(x.body.param))
+        self.assertEqual("d", x.body.param.text)
+
     def test_parse_definition_constant(self):
         x = parse(grammar.definition, "  def f : Type := Type")[0]
         self.assertEqual(Declaration, type(x))
@@ -414,12 +425,12 @@ class TestTheoremProving(TestCase):
                 (T: Type) -> (S: (n: T) -> T) -> (Z: T) -> T
 
             def add (a: Nat) (b: Nat): Nat :=
-                fun T => fun S => fun Z => (a T S) (b T S Z)
+                fun T S Z => (a T S) (b T S Z)
 
             def mul (a: Nat) (b: Nat): Nat :=
-                fun T => fun S => fun Z => (a T) (b T S) Z
+                fun T S Z => (a T) (b T S) Z
 
-            def _3: Nat := fun T => fun S => fun Z => S (S (S Z))
+            def _3: Nat := fun T S Z => S (S (S Z))
 
             def _6: Nat := add _3 _3
 
@@ -437,7 +448,7 @@ class TestTheoremProving(TestCase):
                 (p: (v: T) -> Type) -> (pa: p a) -> p b
 
             def refl (T: Type) (a: T): Eq T a a :=
-                fun p => fun pa => pa
+                fun p pa => pa
 
             def sym (T: Type) (a: T) (b: T) (p: Eq T a b): Eq T b a :=
                 (p (fun b => Eq T b a)) (refl T a)

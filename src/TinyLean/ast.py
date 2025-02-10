@@ -49,7 +49,9 @@ grammar.paren_expr.set_parse_action(lambda r: r[0][0])
 grammar.implicit_param.set_parse_action(lambda r: Param(r[0], r[1][0], True))
 grammar.explicit_param.set_parse_action(lambda r: Param(r[0], r[1][0], False))
 grammar.function_type.set_parse_action(lambda l, r: FnType(l, r[0][0], r[0][1][0]))
-grammar.function.set_parse_action(lambda l, r: Fn(l, r[0][0], r[0][1][0]))
+grammar.function.set_parse_action(
+    lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0][0]), r[0][1][0])
+)
 grammar.call.set_parse_action(
     lambda l, r: reduce(lambda a, b: Call(l, a, b), r[0][1:], r[0][0])
 )

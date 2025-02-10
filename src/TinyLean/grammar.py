@@ -28,7 +28,7 @@ implicit_param = (LBRACE + annotated + RBRACE).set_name("implicit_param")
 explicit_param = (LPAREN + annotated + RPAREN).set_name("explicit_param")
 
 function_type << Group((implicit_param | explicit_param) + ARROW + expr)
-function << Group(FUN + IDENT + TO + expr)
+function << Group(FUN + Group(OneOrMore(IDENT)) + TO + expr)
 callee = REF | paren_expr
 arg = TYPE | REF | paren_expr
 call << Group(callee + inline_one_or_more(arg)).leave_whitespace()
