@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Optional
 
 from . import Ident, Param, InternalCompilerError
 
@@ -63,7 +64,7 @@ class Renamer:
         match v:
             case Ref(n):
                 if n.id in self.locals:
-                    return Ref(Ident(self.locals[n.id], n.text))
+                    return Ref(Ident(n.text, self.locals[n.id]))
                 return v
             case Call(f, x):
                 return Call(self.run(f), self.run(x))
@@ -76,7 +77,7 @@ class Renamer:
         raise InternalCompilerError(v)  # pragma: no cover
 
     def _param(self, p: Param[IR]):
-        name = Ident.fresh(p.name.text)
+        name = Ident(p.name.text)
         self.locals[p.name.id] = name.id
         return Param(name, self.run(p.type), p.implicit)
 
@@ -128,12 +129,21 @@ class Inliner:
         return Param(p.name, self.run(p.type), p.implicit)
 
 
+@dataclass(frozen=True)  # TODO
+class Hole:  # pragma: no cover
+    loc: int
+    is_user: bool
+    locals: list[Param[IR]]
+    type: IR
+    answer: Optional[IR] = None
+
+
 @dataclass(frozen=True)
 class Converter:
     def eq(self, lhs: IR, rhs: IR):
         match lhs, rhs:
             case Ref(x), Ref(y):
-                return x.id == y.id and x.text == y.text
+                return x.id == y.id
             case Call(f, x), Call(g, y):
                 return self.eq(f, g) and self.eq(x, y)
             case FnType(p, b), FnType(q, c):

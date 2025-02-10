@@ -1,28 +1,31 @@
+from dataclasses import dataclass, field
 from functools import reduce
-from typing import ClassVar, Type
-from dataclasses import dataclass
+from operator import iadd
+from typing import Type
 
 
 class InternalCompilerError(Exception): ...  # pragma: no cover
 
 
+_NEXT_ID = 0
+
+
+def fresh():
+    global _NEXT_ID
+    _NEXT_ID += 1
+    return _NEXT_ID
+
+
 @dataclass(frozen=True)
 class Ident:
-    id: int
     text: str
-
-    _NEXT_ID: ClassVar[int] = 0
+    id: int = field(default_factory=fresh)
 
     def __str__(self):
         return self.text
 
     def is_unbound(self):
         return self.text == "_"
-
-    @classmethod
-    def fresh(cls, text: str):
-        cls._NEXT_ID += 1
-        return Ident(cls._NEXT_ID, text)
 
 
 @dataclass(frozen=True)

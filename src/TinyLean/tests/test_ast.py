@@ -8,7 +8,7 @@ from .. import ast, Ident, grammar, Param, Declaration, ir
 
 class TestIdent(TestCase):
     def test_fresh(self):
-        self.assertNotEqual(Ident.fresh("i").id, Ident.fresh("j").id)
+        self.assertNotEqual(Ident("i").id, Ident("j").id)
 
 
 class TestParser(TestCase):
@@ -327,7 +327,7 @@ class TestTypeChecker(TestCase):
     def test_check_expr_function(self):
         check_expr(
             "fun a => a",
-            ir.FnType(Param(Ident.fresh("a"), ir.Type(), False), ir.Type()),
+            ir.FnType(Param(Ident("a"), ir.Type(), False), ir.Type()),
         )
 
     def test_check_expr_on_infer(self):
@@ -335,7 +335,7 @@ class TestTypeChecker(TestCase):
 
     def test_check_expr_on_infer_failed(self):
         with self.assertRaises(ast.TypeMismatchError) as e:
-            check_expr("(a: Type) -> a", ir.Ref(Ident.fresh("a")))
+            check_expr("(a: Type) -> a", ir.Ref(Ident("a")))
         want, got, loc = e.exception.args
         self.assertEqual(0, loc)
         self.assertEqual("a", want)

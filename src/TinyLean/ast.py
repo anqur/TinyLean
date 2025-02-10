@@ -41,7 +41,7 @@ class Placeholder(Node):
     is_user: bool
 
 
-grammar.IDENT.set_parse_action(lambda r: Ident.fresh(r[0]))
+grammar.IDENT.set_parse_action(lambda r: Ident(r[0]))
 grammar.TYPE.set_parse_action(lambda l, r: Type(l))
 grammar.PLACEHOLDER.set_parse_action(lambda l, r: Placeholder(l, True))
 grammar.REF.set_parse_action(lambda l, r: Ref(l, r[0][0]))
@@ -62,7 +62,7 @@ grammar.definition.set_parse_action(
     lambda r: Declaration(r[0].loc, r[0].name, list(r[1]), r[2], r[3][0])
 )
 grammar.example.set_parse_action(
-    lambda l, r: Declaration(l, Ident.fresh("_"), list(r[0]), r[1], r[2][0])
+    lambda l, r: Declaration(l, Ident("_"), list(r[0]), r[1], r[2][0])
 )
 
 
@@ -155,6 +155,7 @@ class TypeMismatchError(Exception): ...
 class TypeChecker:
     globals: dict[int, Declaration[ir.IR]] = field(default_factory=dict)
     locals: dict[int, ir.IR] = field(default_factory=dict)
+    holes: dict[int, ir.Hole] = field(default_factory=dict)
 
     def __ror__(self, ds: list[Declaration[Node]]):
         return [self._run(d) for d in ds]
