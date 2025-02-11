@@ -1,5 +1,6 @@
 # TinyLean
 
+![Supported Python versions](https://img.shields.io/pypi/pyversions/TinyLean)
 [![Test](https://github.com/anqurvanillapy/TinyLean/actions/workflows/test.yml/badge.svg)](https://github.com/anqurvanillapy/TinyLean/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/anqurvanillapy/TinyLean/graph/badge.svg?token=M0P3GXBQDK)](https://codecov.io/gh/anqurvanillapy/TinyLean)
 
