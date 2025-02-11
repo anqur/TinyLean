@@ -396,6 +396,26 @@ class TestTypeChecker(TestCase):
         self.assertEqual("Type", str(want))
         self.assertEqual("(a: Type) → Type", str(got))
 
+    def test_check_program_placeholder(self):
+        ast.check_string(
+            """
+            def a := Type
+            def b: Type := a
+            """
+        )
+
+    def test_check_program_placeholder_locals(self):
+        ast.check_string("def f (T: Type) (a: T) := a")
+
+    def test_check_program_placeholder_unsolved(self):
+        with self.assertRaises(ast.UnsolvedPlaceholderError) as e:
+            ast.check_string("def a: Type := _")
+        name, ctx, ty, loc = e.exception.args
+        self.assertTrue(name.startswith("?u"))
+        self.assertEqual(0, len(ctx))
+        self.assertEqual(ir.Type, type(ty))
+        self.assertEqual(15, loc)
+
 
 def nat_to_int(v: ir.IR):
     n = 0
@@ -515,7 +535,7 @@ Footer.
         p = Path(__file__).parent / ".." / ".." / ".." / ".github" / "README.md"
         with open(p) as f:
             results = ast.check_string(f.read(), True)
-        self.assertGreater(len(results), 0)
+        self.assertGreater(len(results), 1)
 
     def test_example(self):
         ast.check_string(

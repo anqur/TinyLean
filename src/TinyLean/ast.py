@@ -1,7 +1,8 @@
+from itertools import chain
 from dataclasses import dataclass, field
 from functools import reduce
 
-from . import Ident, Param, Declaration, ir, grammar, InternalCompilerError
+from . import Ident, Param, Declaration, ir, grammar, fresh
 
 
 @dataclass(frozen=True)
@@ -71,11 +72,9 @@ class Parser:
     is_markdown: bool = False
 
     def __ror__(self, s: str):
-        return (
-            list(map(lambda r: r[0][0], grammar.markdown.scan_string(s)))
-            if self.is_markdown
-            else grammar.program.parse_string(s, parse_all=True)
-        )
+        if not self.is_markdown:
+            return list(grammar.program.parse_string(s, parse_all=True))
+        return chain.from_iterable(r[0] for r in grammar.markdown.scan_string(s))
 
 
 class DuplicateVariableError(Exception): ...
@@ -125,9 +124,9 @@ class NameResolver:
                 return Fn(loc, v, b)
             case Call(loc, f, x):
                 return Call(loc, self.expr(f), self.expr(x))
-            case Type(_) | Placeholder(_, _):
+            case Type() | Placeholder():
                 return node
-        raise InternalCompilerError(node)  # pragma: no cover
+        raise AssertionError(node)  # pragma: no cover
 
     def _guard_local(self, v: Ident, node: Node):
         old = self._insert_local(v)
@@ -151,43 +150,54 @@ class NameResolver:
 class TypeMismatchError(Exception): ...
 
 
+class UnsolvedPlaceholderError(Exception): ...
+
+
 @dataclass(frozen=True)
 class TypeChecker:
     globals: dict[int, Declaration[ir.IR]] = field(default_factory=dict)
     locals: dict[int, ir.IR] = field(default_factory=dict)
+
+    checked_locals: list[Param[ir.IR]] = field(default_factory=list)
     holes: dict[int, ir.Hole] = field(default_factory=dict)
 
     def __ror__(self, ds: list[Declaration[Node]]):
-        return [self._run(d) for d in ds]
+        ret = [self._run(d) for d in ds]
+        for i, h in self.holes.items():
+            if h.answer is None:
+                p = ir.Placeholder(i, h.is_user)
+                ty = self._inliner().run(h.type)
+                raise UnsolvedPlaceholderError(str(p), h.locals, ty, h.loc)
+        return ret
 
     def _run(self, d: Declaration[Node]) -> Declaration[ir.IR]:
         self.locals.clear()
-        params = []
+        self.checked_locals.clear()
         for p in d.params:
             typ = self.check(p.type, ir.Type())
-            params.append(Param(p.name, typ, p.implicit))
+            self.checked_locals.append(Param(p.name, typ, p.implicit))
             self.locals[p.name.id] = typ
         ret = self.check(d.ret, ir.Type())
         body = self.check(d.body, ret)
-        checked = Declaration(d.loc, d.name, params, ret, body)
+        checked = Declaration(d.loc, d.name, self.checked_locals.copy(), ret, body)
         self.globals[d.name.id] = checked
         return checked
 
     def check(self, n: Node, typ: ir.IR) -> ir.IR:
         match n:
             case Fn(loc, v, body):
-                match ir.Inliner().run(typ):
+                match self._inliner().run(typ):
                     case ir.FnType(p, b):
-                        body_type = ir.Inliner().run_with(p.name, ir.Ref(v), b)
+                        body_type = self._inliner().run_with(p.name, ir.Ref(v), b)
                         param = Param(v, p.type, p.implicit)
                         return ir.Fn(param, self._check_with(param, body, body_type))
                     case want:
                         raise TypeMismatchError(str(want), "function", loc)
             case _:
                 val, got = self.infer(n)
-                got = ir.Inliner().run(got)
-                want = ir.Inliner().run(typ)
-                if ir.Converter().eq(got, want):
+                got = self._inliner().run(got)
+                want = self._inliner().run(typ)
+                if ir.Converter(self.holes).eq(got, want):
                     return val
                 raise TypeMismatchError(str(want), str(got), n.loc)
 
@@ -199,7 +209,7 @@ class TypeChecker:
                 if v.id in self.globals:
                     d = self.globals[v.id]
                     return ir.rename(d.to_value(ir.Fn)), ir.rename(d.to_type(ir.FnType))
-                raise InternalCompilerError(v)  # pragma: no cover
+                raise AssertionError(v)  # pragma: no cover
             case FnType(_, p, b):
                 p_typ = self.check(p.type, ir.Type())
                 inferred_p = Param(p.name, p_typ, p.implicit)
@@ -210,14 +220,21 @@ class TypeChecker:
                 match f_typ:
                     case ir.FnType(p, b):
                         x_tm = self._check_with(p, x, p.type)
-                        typ = ir.Inliner().run_with(p.name, x_tm, b)
-                        val = ir.Inliner().apply(f_tm, x_tm)
+                        typ = self._inliner().run_with(p.name, x_tm, b)
+                        val = self._inliner().apply(f_tm, x_tm)
                         return val, typ
                     case got:
                         raise TypeMismatchError("function", str(got), f.loc)
-            case Type(_):
+            case Type():
                 return ir.Type(), ir.Type()
-        raise InternalCompilerError(n)  # pragma: no cover
+            case Placeholder(loc, is_user):
+                ty = self._insert_hole(loc, is_user, ir.Type())
+                v = self._insert_hole(loc, is_user, ty)
+                return v, ty
+        raise AssertionError(n)  # pragma: no cover
+
+    def _inliner(self):
+        return ir.Inliner(self.holes)
 
     def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
         self.locals[p.name.id] = p.type
@@ -225,6 +242,11 @@ class TypeChecker:
         if p.name.id in self.locals:
             del self.locals[p.name.id]
         return ret
+
+    def _insert_hole(self, loc: int, is_user: bool, typ: ir.IR):
+        i = fresh()
+        self.holes[i] = ir.Hole(loc, is_user, self.checked_locals.copy(), typ)
+        return ir.Placeholder(i, is_user)
 
 
 def check_string(text: str, is_markdown=False):

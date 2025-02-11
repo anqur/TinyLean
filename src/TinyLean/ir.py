@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from . import Ident, Param, InternalCompilerError
+from . import Ident, Param
 
 
 @dataclass(frozen=True)
@@ -46,14 +46,14 @@ class Call(IR):
         return f"({self.callee} {self.arg})"
 
 
-@dataclass(frozen=True)  # TODO
-class Placeholder(IR):  # pragma: no cover
+@dataclass(frozen=True)
+class Placeholder(IR):
+    id: int
     is_user: bool
-    name: Ident
 
     def __str__(self):
         t = "u" if self.is_user else "m"
-        return f"?{t}.{self.name.id}"
+        return f"?{t}.{self.id}"
 
 
 @dataclass(frozen=True)
@@ -72,9 +72,9 @@ class Renamer:
                 return Fn(self._param(p), self.run(b))
             case FnType(p, b):
                 return FnType(self._param(p), self.run(b))
-            case Type():
+            case Type() | Placeholder():
                 return v
-        raise InternalCompilerError(v)  # pragma: no cover
+        raise AssertionError(v)  # pragma: no cover
 
     def _param(self, p: Param[IR]):
         name = Ident(p.name.text)
@@ -85,8 +85,18 @@ class Renamer:
 rename = lambda v: Renamer().run(v)
 
 
+@dataclass
+class Hole:
+    loc: int
+    is_user: bool
+    locals: list[Param[IR]]
+    type: IR
+    answer: Optional[IR] = None
+
+
 @dataclass(frozen=True)
 class Inliner:
+    holes: dict[int, Hole]
     env: dict[int, IR] = field(default_factory=dict)
 
     def run(self, v: IR) -> IR:
@@ -109,7 +119,13 @@ class Inliner:
                 return FnType(self._param(p), self.run(b))
             case Type():
                 return v
-        raise InternalCompilerError(v)  # pragma: no cover
+            case Placeholder(i) as ph:
+                h = self.holes[i]
+                h.type = self.run(h.type)
+                if h.answer is None:
+                    return ph
+                return self.run(h.answer)
+        raise AssertionError(v)  # pragma: no cover
 
     def run_with(self, a_name: Ident, a: IR, b: IR):
         self.env[a_name.id] = a
@@ -129,19 +145,16 @@ class Inliner:
         return Param(p.name, self.run(p.type), p.implicit)
 
 
-@dataclass(frozen=True)  # TODO
-class Hole:  # pragma: no cover
-    loc: int
-    is_user: bool
-    locals: list[Param[IR]]
-    type: IR
-    answer: Optional[IR] = None
-
-
 @dataclass(frozen=True)
 class Converter:
+    holes: dict[int, Hole]
+
     def eq(self, lhs: IR, rhs: IR):
         match lhs, rhs:
+            case Placeholder() as x, y:
+                return self._solve(x, y)
+            case x, Placeholder() as y:
+                return self._solve(y, x)
             case Ref(x), Ref(y):
                 return x.id == y.id
             case Call(f, x), Call(g, y):
@@ -149,8 +162,23 @@ class Converter:
             case FnType(p, b), FnType(q, c):
                 if not self.eq(p.type, q.type):
                     return False
-                return self.eq(b, Inliner().run_with(q.name, Ref(p.name), c))
+                return self.eq(b, Inliner(self.holes).run_with(q.name, Ref(p.name), c))
             case Type(), Type():
                 return True
-        # FIXME: Currently, comparing two functions not happening in tests.
+
+        # FIXME: Following cases not seen in tests yet:
+        assert not (isinstance(lhs, Fn) and isinstance(rhs, Fn))
+        assert not (isinstance(lhs, Placeholder) and isinstance(rhs, Placeholder))
+
         return False
+
+    def _solve(self, p: Placeholder, answer: IR):
+        h = self.holes[p.id]
+        assert h.answer is None  # FIXME: can be not None here?
+        h.answer = answer
+
+        if isinstance(answer, Ref):
+            for param in h.locals:
+                if param.name.id == answer.name.id:
+                    assert self.eq(param.type, h.type)  # FIXME: will fail here?
+        return True

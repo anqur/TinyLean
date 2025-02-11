@@ -1,10 +1,6 @@
 from dataclasses import dataclass, field
 from functools import reduce
-from operator import iadd
 from typing import Type
-
-
-class InternalCompilerError(Exception): ...  # pragma: no cover
 
 
 _NEXT_ID = 0

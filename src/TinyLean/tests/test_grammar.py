@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from . import parse
-from ..grammar import definition, program, expr, markdown, example
+from ..grammar import definition, program, expr, example, markdown
 
 
 class TestGrammar(TestCase):
@@ -67,20 +67,23 @@ class TestGrammar(TestCase):
         )
 
     def test_parse_markdown(self):
-        results = list(
-            markdown.scan_string(
-                """\
+        text = """\
 # Heading 1
 
 ```lean
+def a: Type := Type
 def b: Type := Type
+```
+
+```lean
+example := Type
 ```
 
 Invalid Lean program:
 
 ```lean
-def a: Type := a b
-    c
+def c: Type := x y
+    z
 /-  ^~~~~ syntax error -/
 ```
 
@@ -97,10 +100,12 @@ def c: Type := Type
 ````
 
 Footer.
-            """,
-            )
-        )
-        self.assertEqual(1, len(results))
+            """
+
+        results = list(markdown.scan_string(text))
+        self.assertEqual(2, len(results))
+        _, start, end = results[1]
+        self.assertTrue("example" in text[start:end])
 
     def test_parse_example(self):
         parse(example, "example (a: Type): Type := a")
