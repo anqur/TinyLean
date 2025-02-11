@@ -15,8 +15,7 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v5
         with:
@@ -38,6 +37,14 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+  cloc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install cloc jq
       - name: Run CLOC
         run: cloc --exclude-dir=dist,venv,build,tests --json . | jq '"CLOC="+(.Python.code|tostring)' -r  >> $GITHUB_ENV
       - name: Create CLOC badge
