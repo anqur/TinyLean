@@ -507,15 +507,13 @@ class TestTheoremProving(TestCase):
         )
 
     def test_markdown(self):
-        eq, refl, sym = ast.check_string(
+        results = ast.check_string(
             """\
 # Heading 1
 
 ```lean
 def Eq (T: Type) (a: T) (b: T): Type := (p: (v: T) -> Type) -> (pa: p a) -> p b
-```
 
-```lean
 def refl (T: Type) (a: T): Eq T a a := fun p => fun pa => pa
 ```
 
@@ -523,10 +521,24 @@ def refl (T: Type) (a: T): Eq T a a := fun p => fun pa => pa
 def sym (T: Type) (a: T) (b: T) (p: Eq T a b): Eq T b a := (p (fun b => Eq T b a)) (refl T a)
 ```
 
+```lean4
+def A: Type := Type
+```
+
+```python
+print("Hello, world!")
+```
+
+```
+Broken code.
+```````
+
 Footer.
             """,
             True,
         )
+        self.assertEqual(3, len(results))
+        eq, refl, sym = results
         self.assertEqual("Eq", eq.name.text)
         self.assertEqual("refl", refl.name.text)
         self.assertEqual("sym", sym.name.text)
