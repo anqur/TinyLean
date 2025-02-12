@@ -13,7 +13,7 @@ def fresh():
 
 
 @dataclass(frozen=True)
-class Ident:
+class Name:
     text: str
     id: int = field(default_factory=fresh)
 
@@ -26,7 +26,7 @@ class Ident:
 
 @dataclass(frozen=True)
 class Param[T]:
-    name: Ident
+    name: Name
     type: T
     implicit: bool
 
@@ -38,7 +38,7 @@ class Param[T]:
 @dataclass(frozen=True)
 class Decl[T]:
     loc: int
-    name: Ident
+    name: Name
     params: list[Param[T]]
     ret: T
     body: T

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from . import Ident, Param
+from . import Name, Param
 
 
 @dataclass(frozen=True)
@@ -16,7 +16,7 @@ class Type(IR):
 
 @dataclass(frozen=True)
 class Ref(IR):
-    name: Ident
+    name: Name
 
     def __str__(self):
         return str(self.name)
@@ -64,7 +64,7 @@ class Renamer:
         match v:
             case Ref(n):
                 if n.id in self.locals:
-                    return Ref(Ident(n.text, self.locals[n.id]))
+                    return Ref(Name(n.text, self.locals[n.id]))
                 return v
             case Call(f, x):
                 return Call(self.run(f), self.run(x))
@@ -77,7 +77,7 @@ class Renamer:
         raise AssertionError(v)  # pragma: no cover
 
     def _param(self, p: Param[IR]):
-        name = Ident(p.name.text)
+        name = Name(p.name.text)
         self.locals[p.name.id] = name.id
         return Param(name, self.run(p.type), p.implicit)
 
@@ -135,7 +135,7 @@ class Inliner:
                 return self.run(h.answer.value)
         raise AssertionError(v)  # pragma: no cover
 
-    def run_with(self, a_name: Ident, a: IR, b: IR):
+    def run_with(self, a_name: Name, a: IR, b: IR):
         self.env[a_name.id] = a
         return self.run(b)
 

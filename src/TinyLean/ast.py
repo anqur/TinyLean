@@ -2,7 +2,7 @@ from functools import reduce
 from itertools import chain
 from dataclasses import dataclass, field
 
-from . import Ident, Param, Decl, ir, grammar as _g, fresh
+from . import Name, Param, Decl, ir, grammar as _g, fresh
 
 
 @dataclass(frozen=True)
@@ -16,7 +16,7 @@ class Type(Node): ...
 
 @dataclass(frozen=True)
 class Ref(Node):
-    name: Ident
+    name: Name
 
 
 @dataclass(frozen=True)
@@ -27,14 +27,20 @@ class FnType(Node):
 
 @dataclass(frozen=True)
 class Fn(Node):
-    param: Ident
+    param: Name
     body: Node
+
+
+@dataclass(frozen=True)
+class Arg(Node):
+    implicit_to: str | None
+    value: Node
 
 
 @dataclass(frozen=True)
 class Call(Node):
     callee: Node
-    arg: Node
+    arg: Arg
 
 
 @dataclass(frozen=True)
@@ -42,9 +48,9 @@ class Placeholder(Node):
     is_user: bool
 
 
-_g.IDENT.set_parse_action(lambda r: Ident(r[0]))
+_g.name.set_parse_action(lambda r: Name(r[0][0]))
 _g.type_.set_parse_action(lambda l, r: Type(l))
-_g.placeholder.set_parse_action(lambda l, r: Placeholder(l, True))
+_g.ph.set_parse_action(lambda l, r: Placeholder(l, True))
 _g.ref.set_parse_action(lambda l, r: Ref(l, r[0][0]))
 _g.implicit_param.set_parse_action(lambda r: Param(r[0], r[1], True))
 _g.explicit_param.set_parse_action(lambda r: Param(r[0], r[1], False))
@@ -52,13 +58,15 @@ _g.fn_type.set_parse_action(lambda l, r: FnType(l, r[0], r[1]))
 _g.fn.set_parse_action(
     lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
 )
+_g.i_arg.set_parse_action(lambda l, r: Arg(l, r[0], r[1]))
+_g.e_arg.set_parse_action(lambda l, r: Arg(l, None, r[0]))
 _g.call.set_parse_action(lambda l, r: reduce(lambda a, b: Call(l, a, b), r[1:], r[0]))
-_g.paren_expr.set_parse_action(lambda r: r[0])
+_g.p_expr.set_parse_action(lambda r: r[0])
 _g.return_type.set_parse_action(lambda l, r: r[0] if len(r) else Placeholder(l, False))
 _g.definition.set_parse_action(
     lambda r: Decl(r[0].loc, r[0].name, list(r[1]), r[2], r[3])
 )
-_g.example.set_parse_action(lambda l, r: Decl(l, Ident("_"), list(r[0]), r[1], r[2]))
+_g.example.set_parse_action(lambda l, r: Decl(l, Name("_"), list(r[0]), r[1], r[2]))
 
 
 @dataclass(frozen=True)
@@ -79,8 +87,8 @@ class UndefinedVariableError(Exception): ...
 
 @dataclass(frozen=True)
 class NameResolver:
-    locals: dict[str, Ident] = field(default_factory=dict)
-    globals: dict[str, Ident] = field(default_factory=dict)
+    locals: dict[str, Name] = field(default_factory=dict)
+    globals: dict[str, Name] = field(default_factory=dict)
 
     def __ror__(self, decls: list[Decl[Node]]):
         return [self.decl(d) for d in decls]
@@ -117,12 +125,13 @@ class NameResolver:
                 b = self._guard_local(v, body)
                 return Fn(loc, v, b)
             case Call(loc, f, x):
-                return Call(loc, self.expr(f), self.expr(x))
+                arg = Arg(loc, x.implicit_to, self.expr(x.value))
+                return Call(loc, self.expr(f), arg)
             case Type() | Placeholder():
                 return node
         raise AssertionError(node)  # pragma: no cover
 
-    def _guard_local(self, v: Ident, node: Node):
+    def _guard_local(self, v: Name, node: Node):
         old = self._insert_local(v)
         ret = self.expr(node)
         if old:
@@ -131,7 +140,7 @@ class NameResolver:
             del self.locals[v.text]
         return ret
 
-    def _insert_local(self, v: Ident):
+    def _insert_local(self, v: Name):
         if v.is_unbound():
             return None
         old = None
@@ -211,7 +220,7 @@ class TypeChecker:
                 f_tm, f_typ = self.infer(f)
                 match f_typ:
                     case ir.FnType(p, b):
-                        x_tm = self._check_with(p, x, p.type)
+                        x_tm = self._check_with(p, x.value, p.type)
                         typ = self._inliner().run_with(p.name, x_tm, b)
                         val = self._inliner().apply(f_tm, x_tm)
                         return val, typ

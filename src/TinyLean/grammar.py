@@ -2,6 +2,8 @@ from pyparsing import *
 
 COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
+IDENT = unicode_set.identifier()
+
 DEF, EXAMPLE, INDUCTIVE, TYPE = map(
     lambda w: Suppress(Keyword(w)), "def example inductive Type".split()
 )
@@ -13,26 +15,26 @@ ASSIGN, ARROW, FUN, TO = map(
 LPAREN, RPAREN, LBRACE, RBRACE, COLON, UNDER = map(Suppress, "(){}:_")
 inline_one_or_more = lambda e: OneOrMore(Opt(Suppress(White(" \t\r"))) + e)
 
-IDENT = unicode_set.identifier().set_name("IDENT")
-
-expr, fn_type, fn, call, paren_expr, type_, placeholder, ref = map(
+expr, fn_type, fn, call, i_arg, e_arg, p_expr, type_, ph, ref = map(
     lambda n: Forward().set_name(n),
-    "expr function_type function call paren_expr type placeholder ref".split(),
+    "expr fn_type fn call implicit_arg explicit_arg paren_expr type placeholder ref".split(),
 )
 
-expr <<= fn_type | fn | call | paren_expr | type_ | placeholder | ref
+expr <<= fn_type | fn | call | p_expr | type_ | ph | ref
 
-implicit_param = (LBRACE + IDENT + COLON + expr + RBRACE).set_name("implicit_param")
-explicit_param = (LPAREN + IDENT + COLON + expr + RPAREN).set_name("explicit_param")
+name = Group(IDENT).set_name("name")
+implicit_param = (LBRACE + name + COLON + expr + RBRACE).set_name("implicit_param")
+explicit_param = (LPAREN + name + COLON + expr + RPAREN).set_name("explicit_param")
 fn_type <<= (implicit_param | explicit_param) + ARROW + expr
-fn <<= FUN + Group(OneOrMore(IDENT)) + TO + expr
-callee = ref | paren_expr
-arg = type_ | ref | paren_expr
-call <<= (callee + inline_one_or_more(arg)).leave_whitespace()
-paren_expr <<= LPAREN + expr + RPAREN
+fn <<= FUN + Group(OneOrMore(name)) + TO + expr
+callee = ref | p_expr
+call <<= (callee + inline_one_or_more(i_arg | e_arg)).leave_whitespace()
+i_arg <<= (LPAREN + IDENT + ASSIGN + expr + RPAREN).leave_whitespace()
+e_arg <<= (type_ | ref | p_expr).leave_whitespace()
+p_expr <<= LPAREN + expr + RPAREN
 type_ <<= Group(TYPE)
-placeholder <<= Group(UNDER)
-ref <<= Group(IDENT)
+ph <<= Group(UNDER)
+ref <<= Group(name)
 
 return_type = Opt(COLON + expr)
 params = Group(ZeroOrMore(implicit_param | explicit_param))
