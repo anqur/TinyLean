@@ -22,12 +22,12 @@ class TestParser(TestCase):
         self.assertTrue(x.is_unbound())
 
     def test_parse_type(self):
-        x = parse(grammar.TYPE, "  Type")[0]
+        x = parse(grammar.type_, "  Type")[0]
         self.assertEqual(ast.Type, type(x))
         self.assertEqual(2, x.loc)
 
     def test_parse_reference(self):
-        x = parse(grammar.REF, "  hello")[0]
+        x = parse(grammar.ref, "  hello")[0]
         self.assertEqual(ast.Ref, type(x))
         self.assertEqual(2, x.loc)
         self.assertEqual("hello", x.name.text)
