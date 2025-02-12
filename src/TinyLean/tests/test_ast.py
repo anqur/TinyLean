@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import cast
 from unittest import TestCase
 
 from . import parse
@@ -250,20 +249,22 @@ resolve_expr = lambda s: ast.NameResolver().expr(parse(grammar.expr, s)[0])
 
 class TestNameResolver(TestCase):
     def test_resolve_expr_function(self):
-        x = cast(ast.Fn, resolve_expr("fun a => fun b => a b"))
-        y = cast(ast.Fn, x.body)
-        z = cast(ast.Call, y.body)
-        callee = cast(ast.Ref, z.callee)
-        arg = cast(ast.Ref, z.arg)
-        self.assertEqual(x.param.id, callee.name.id)
-        self.assertEqual(y.param.id, arg.name.id)
+        x = resolve_expr("fun a => fun b => a b")
+        assert isinstance(x, ast.Fn)
+        assert isinstance(x.body, ast.Fn)
+        assert isinstance(x.body.body, ast.Call)
+        assert isinstance(x.body.body.callee, ast.Ref)
+        assert isinstance(x.body.body.arg, ast.Ref)
+        self.assertEqual(x.param.id, x.body.body.callee.name.id)
+        self.assertEqual(x.body.param.id, x.body.body.arg.name.id)
 
     def test_resolve_expr_function_shadowed(self):
-        x = cast(ast.Fn, resolve_expr("fun a => fun a => a"))
-        y = cast(ast.Fn, x.body)
-        z = cast(ast.Ref, y.body)
-        self.assertNotEqual(x.param.id, z.name.id)
-        self.assertEqual(y.param.id, z.name.id)
+        x = resolve_expr("fun a => fun a => a")
+        assert isinstance(x, ast.Fn)
+        assert isinstance(x.body, ast.Fn)
+        assert isinstance(x.body.body, ast.Ref)
+        self.assertNotEqual(x.param.id, x.body.body.name.id)
+        self.assertEqual(x.body.param.id, x.body.body.name.id)
 
     def test_resolve_expr_function_failed(self):
         with self.assertRaises(ast.UndefinedVariableError) as e:
@@ -273,11 +274,12 @@ class TestNameResolver(TestCase):
         self.assertEqual("b", n.text)
 
     def test_resolve_expr_function_type(self):
-        x = cast(ast.FnType, resolve_expr("{a: Type} -> (b: Type) -> a"))
-        y = cast(ast.FnType, x.ret)
-        z = cast(ast.Ref, y.ret)
-        self.assertEqual(x.param.name.id, z.name.id)
-        self.assertNotEqual(y.param.name.id, z.name.id)
+        x = resolve_expr("{a: Type} -> (b: Type) -> a")
+        assert isinstance(x, ast.FnType)
+        assert isinstance(x.ret, ast.FnType)
+        assert isinstance(x.ret.ret, ast.Ref)
+        self.assertEqual(x.param.name.id, x.ret.ret.name.id)
+        self.assertNotEqual(x.ret.param.name.id, x.ret.ret.name.id)
 
     def test_resolve_expr_function_type_failed(self):
         with self.assertRaises(ast.UndefinedVariableError) as e:
