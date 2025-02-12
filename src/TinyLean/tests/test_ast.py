@@ -235,7 +235,7 @@ class TestParser(TestCase):
 
 resolve = lambda s: s | ast.Parser() | ast.NameResolver()
 resolve_md = lambda s: s | ast.Parser(True) | ast.NameResolver()
-resolve_expr = lambda s: ast.NameResolver().expr(parse(grammar.expr, s)[0][0])
+resolve_expr = lambda s: ast.NameResolver().expr(parse(grammar.expr, s)[0])
 
 
 class TestNameResolver(TestCase):

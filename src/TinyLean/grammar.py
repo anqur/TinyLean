@@ -21,21 +21,21 @@ expr, function_type, function, REF, TYPE, call, paren_expr, PLACEHOLDER = map(
     "expr function_type function REF TYPE call paren_expr PLACEHOLDER".split(),
 )
 
-expr << Group(function_type | function | call | paren_expr | TYPE | PLACEHOLDER | REF)
+expr <<= function_type | function | call | paren_expr | TYPE | PLACEHOLDER | REF
 
 annotated = IDENT + COLON + expr
 implicit_param = (LBRACE + annotated + RBRACE).set_name("implicit_param")
 explicit_param = (LPAREN + annotated + RPAREN).set_name("explicit_param")
 
-function_type << Group((implicit_param | explicit_param) + ARROW + expr)
-function << Group(FUN + Group(OneOrMore(IDENT)) + TO + expr)
+function_type <<= (implicit_param | explicit_param) + ARROW + expr
+function <<= FUN + Group(OneOrMore(IDENT)) + TO + expr
 callee = REF | paren_expr
 arg = TYPE | REF | paren_expr
-call << Group(callee + inline_one_or_more(arg)).leave_whitespace()
-paren_expr << Group(LPAREN + expr + RPAREN)
-TYPE << Group(TYPE_)
-PLACEHOLDER << Group(UNDER)
-REF << Group(IDENT)
+call <<= (callee + inline_one_or_more(arg)).leave_whitespace()
+paren_expr <<= LPAREN + expr + RPAREN
+TYPE <<= TYPE_
+PLACEHOLDER <<= UNDER
+REF <<= IDENT
 
 return_type = Opt(COLON + expr)
 params = Group(ZeroOrMore(implicit_param) + ZeroOrMore(explicit_param))
