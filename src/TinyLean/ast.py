@@ -35,7 +35,7 @@ class Fn(Node):
 class Call(Node):
     callee: Node
     arg: Node
-    implicit_to: str | None
+    implicit: str | bool
 
 
 @dataclass(frozen=True)
@@ -54,7 +54,7 @@ _g.fn.set_parse_action(
     lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
 )
 _g.i_arg.set_parse_action(lambda l, r: (r[1], r[0]))
-_g.e_arg.set_parse_action(lambda l, r: (r[0], None))
+_g.e_arg.set_parse_action(lambda l, r: (r[0], False))
 _g.call.set_parse_action(
     lambda l, r: reduce(lambda a, b: Call(l, a, b[0], b[1]), r[1:], r[0])
 )
@@ -94,7 +94,7 @@ class NameResolver:
         params = []
         for p in d.params:
             self._insert_local(p.name)
-            params.append(Param(p.name, self.expr(p.type), p.implicit))
+            params.append(Param(p.name, self.expr(p.type), p.is_implicit))
         ret = self.expr(d.ret)
         body = self.expr(d.body)
 
@@ -117,12 +117,12 @@ class NameResolver:
             case FnType(loc, p, body):
                 typ = self.expr(p.type)
                 b = self._guard_local(p.name, body)
-                return FnType(loc, Param(p.name, typ, p.implicit), b)
+                return FnType(loc, Param(p.name, typ, p.is_implicit), b)
             case Fn(loc, v, body):
                 b = self._guard_local(v, body)
                 return Fn(loc, v, b)
-            case Call(loc, f, x, n):
-                return Call(loc, self.expr(f), self.expr(x), n)
+            case Call(loc, f, x, i):
+                return Call(loc, self.expr(f), self.expr(x), i)
             case Type() | Placeholder():
                 return node
         raise AssertionError(node)  # pragma: no cover
@@ -152,6 +152,9 @@ class TypeMismatchError(Exception): ...
 class UnsolvedPlaceholderError(Exception): ...
 
 
+class UndefinedImplicitParam(Exception): ...
+
+
 @dataclass(frozen=True)
 class TypeChecker:
     globals: dict[int, Decl[ir.IR]] = field(default_factory=dict)
@@ -171,7 +174,7 @@ class TypeChecker:
         self.locals.clear()
         params = []
         for p in d.params:
-            param = Param(p.name, self.check(p.type, ir.Type()), p.implicit)
+            param = Param(p.name, self.check(p.type, ir.Type()), p.is_implicit)
             self.locals[p.name.id] = param
             params.append(param)
         ret = self.check(d.ret, ir.Type())
@@ -186,7 +189,7 @@ class TypeChecker:
                 match self._inliner().run(typ):
                     case ir.FnType(p, b):
                         body_type = self._inliner().run_with(p.name, ir.Ref(v), b)
-                        param = Param(v, p.type, p.implicit)
+                        param = Param(v, p.type, p.is_implicit)
                         return ir.Fn(param, self._check_with(param, body, body_type))
                     case want:
                         raise TypeMismatchError(str(want), "function", loc)
@@ -209,16 +212,16 @@ class TypeChecker:
                 raise AssertionError(v)  # pragma: no cover
             case FnType(_, p, b):
                 p_typ = self.check(p.type, ir.Type())
-                inferred_p = Param(p.name, p_typ, p.implicit)
+                inferred_p = Param(p.name, p_typ, p.is_implicit)
                 b_val = self._check_with(inferred_p, b, ir.Type())
                 return ir.FnType(inferred_p, b_val), ir.Type()
             case Call(_, f, x, _):
-                f_tm, f_typ = self.infer(f)
+                f_val, f_typ = self.infer(f)
                 match f_typ:
                     case ir.FnType(p, b):
                         x_tm = self._check_with(p, x, p.type)
                         typ = self._inliner().run_with(p.name, x_tm, b)
-                        val = self._inliner().apply(f_tm, x_tm)
+                        val = self._inliner().apply(f_val, x_tm)
                         return val, typ
                     case got:
                         raise TypeMismatchError("function", str(got), f.loc)
@@ -244,6 +247,15 @@ class TypeChecker:
         i = fresh()
         self.holes[i] = ir.Hole(loc, is_user, self.locals.copy(), ir.Answer(typ))
         return ir.Placeholder(i, is_user)
+
+    def _with_placeholders(
+        self, callee: Node, callee_ty: ir.IR, implicit: str | bool
+    ):  # pragma: no cover
+        if not isinstance(callee_ty, ir.FnType) or not callee_ty.param.is_implicit:
+            return None
+        # TODO
+        if implicit is None:
+            pass
 
 
 def check_string(text: str, is_markdown=False):

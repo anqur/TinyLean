@@ -28,10 +28,10 @@ class Name:
 class Param[T]:
     name: Name
     type: T
-    implicit: bool
+    is_implicit: bool
 
     def __str__(self):
-        l, r = "{}" if self.implicit else "()"
+        l, r = "{}" if self.is_implicit else "()"
         return f"{l}{self.name}: {self.type}{r}"
 
 

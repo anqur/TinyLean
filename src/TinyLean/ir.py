@@ -24,11 +24,11 @@ class Ref(IR):
 
 @dataclass(frozen=True)
 class FnType(IR):
-    param_type: Param[IR]
-    return_type: IR
+    param: Param[IR]
+    ret: IR
 
     def __str__(self):
-        return f"{self.param_type} → {self.return_type}"
+        return f"{self.param} → {self.ret}"
 
 
 @dataclass(frozen=True)
@@ -79,7 +79,7 @@ class Renamer:
     def _param(self, p: Param[IR]):
         name = Name(p.name.text)
         self.locals[p.name.id] = name.id
-        return Param(name, self.run(p.type), p.implicit)
+        return Param(name, self.run(p.type), p.is_implicit)
 
 
 rename = lambda v: Renamer().run(v)
@@ -150,7 +150,7 @@ class Inliner:
         return ret
 
     def _param(self, p: Param[IR]):
-        return Param(p.name, self.run(p.type), p.implicit)
+        return Param(p.name, self.run(p.type), p.is_implicit)
 
 
 @dataclass(frozen=True)

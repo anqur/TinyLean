@@ -37,7 +37,7 @@ class TestParser(TestCase):
     def test_parse_implicit_param(self):
         x = parse(grammar.implicit_param, " {a: b}")[0]
         assert isinstance(x, Param)
-        self.assertTrue(x.implicit)
+        self.assertTrue(x.is_implicit)
         self.assertEqual("a", x.name.text)
         assert isinstance(x.type, ast.Ref)
         self.assertEqual(5, x.type.loc)
@@ -45,7 +45,7 @@ class TestParser(TestCase):
     def test_parse_explicit_param(self):
         x = parse(grammar.explicit_param, " (a : Type)")[0]
         assert isinstance(x, Param)
-        self.assertFalse(x.implicit)
+        self.assertFalse(x.is_implicit)
         self.assertEqual("a", x.name.text)
         assert isinstance(x.type, ast.Type)
         self.assertEqual(6, x.type.loc)
@@ -171,12 +171,12 @@ class TestParser(TestCase):
         assert isinstance(x.params, list)
         self.assertEqual(2, len(x.params))
         assert isinstance(x.params[0], ast.Param)
-        self.assertTrue(x.params[0].implicit)
+        self.assertTrue(x.params[0].is_implicit)
         self.assertEqual("a", x.params[0].name.text)
         assert isinstance(x.params[0].type, ast.Type)
         self.assertEqual(12, x.params[0].type.loc)
         assert isinstance(x.params[1], ast.Param)
-        self.assertFalse(x.params[1].implicit)
+        self.assertFalse(x.params[1].is_implicit)
         self.assertEqual("b", x.params[1].name.text)
         assert isinstance(x.params[1].type, ast.Type)
         self.assertEqual(22, x.params[1].type.loc)
@@ -234,10 +234,18 @@ class TestParser(TestCase):
         assert isinstance(x, ast.Call)
         assert isinstance(x.callee, ast.Ref)
         self.assertEqual("a", x.callee.name.text)
-        assert isinstance(x.implicit_to, str)
-        self.assertEqual("T", x.implicit_to)
+        self.assertEqual("T", x.implicit)
         assert isinstance(x.arg, ast.Ref)
         self.assertEqual("Nat", x.arg.name.text)
+
+    def test_parse_call_explicit(self):
+        x = parse(grammar.call, "a b")[0]
+        assert isinstance(x, ast.Call)
+        assert isinstance(x.callee, ast.Ref)
+        self.assertEqual("a", x.callee.name.text)
+        self.assertFalse(x.implicit)
+        assert isinstance(x.arg, ast.Ref)
+        self.assertEqual("b", x.arg.name.text)
 
     def test_parse_definition_call_implicit(self):
         x = parse(
@@ -255,6 +263,6 @@ class TestParser(TestCase):
         self.assertEqual("a", x.body.callee.callee.name.text)
         assert isinstance(x.body.callee.arg, ast.Ref)
         self.assertEqual("Nat", x.body.callee.arg.name.text)
-        self.assertEqual("T", x.body.callee.implicit_to)
+        self.assertEqual("T", x.body.callee.implicit)
         assert isinstance(x.body.arg, ast.Ref)
         self.assertEqual("b", x.body.arg.name.text)
