@@ -156,30 +156,28 @@ class UnsolvedPlaceholderError(Exception): ...
 @dataclass(frozen=True)
 class TypeChecker:
     globals: dict[int, Declaration[ir.IR]] = field(default_factory=dict)
-    locals: dict[int, ir.IR] = field(default_factory=dict)
-
-    checked_locals: list[Param[ir.IR]] = field(default_factory=list)
+    locals: dict[int, Param[ir.IR]] = field(default_factory=dict)
     holes: dict[int, ir.Hole] = field(default_factory=dict)
 
     def __ror__(self, ds: list[Declaration[Node]]):
         ret = [self._run(d) for d in ds]
         for i, h in self.holes.items():
-            if h.answer is None:
+            if h.answer.is_unsolved():
                 p = ir.Placeholder(i, h.is_user)
-                ty = self._inliner().run(h.type)
+                ty = self._inliner().run(h.answer.type)
                 raise UnsolvedPlaceholderError(str(p), h.locals, ty, h.loc)
         return ret
 
     def _run(self, d: Declaration[Node]) -> Declaration[ir.IR]:
         self.locals.clear()
-        self.checked_locals.clear()
+        params = []
         for p in d.params:
-            typ = self.check(p.type, ir.Type())
-            self.checked_locals.append(Param(p.name, typ, p.implicit))
-            self.locals[p.name.id] = typ
+            param = Param(p.name, self.check(p.type, ir.Type()), p.implicit)
+            self.locals[p.name.id] = param
+            params.append(param)
         ret = self.check(d.ret, ir.Type())
         body = self.check(d.body, ret)
-        checked = Declaration(d.loc, d.name, self.checked_locals.copy(), ret, body)
+        checked = Declaration(d.loc, d.name, params, ret, body)
         self.globals[d.name.id] = checked
         return checked
 
@@ -205,7 +203,7 @@ class TypeChecker:
         match n:
             case Ref(_, v):
                 if v.id in self.locals:
-                    return ir.Ref(v), self.locals[v.id]
+                    return ir.Ref(v), self.locals[v.id].type
                 if v.id in self.globals:
                     d = self.globals[v.id]
                     return ir.rename(d.to_value(ir.Fn)), ir.rename(d.to_type(ir.FnType))
@@ -237,7 +235,7 @@ class TypeChecker:
         return ir.Inliner(self.holes)
 
     def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
-        self.locals[p.name.id] = p.type
+        self.locals[p.name.id] = p
         ret = self.check(n, typ)
         if p.name.id in self.locals:
             del self.locals[p.name.id]
@@ -245,7 +243,7 @@ class TypeChecker:
 
     def _insert_hole(self, loc: int, is_user: bool, typ: ir.IR):
         i = fresh()
-        self.holes[i] = ir.Hole(loc, is_user, self.checked_locals.copy(), typ)
+        self.holes[i] = ir.Hole(loc, is_user, self.locals.copy(), ir.Answer(typ))
         return ir.Placeholder(i, is_user)
 
 

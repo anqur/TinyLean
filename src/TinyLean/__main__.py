@@ -43,7 +43,7 @@ def main():
     except ast.UnsolvedPlaceholderError as e:
         name, ctx, ty, loc = e.args
         ty_msg = f"  {name} : {ty}"
-        ctx_msg = "".join([f"\n  {p}" for p in ctx]) if ctx else " (none)"
+        ctx_msg = "".join([f"\n  {p}" for p in ctx.values()]) if ctx else " (none)"
         fatal_on(text, loc, f"unsolved placeholder:\n{ty_msg}\n\ncontext:{ctx_msg}")
     except AssertionError as e:
         print("Internal compiler error! Please report this issue:")

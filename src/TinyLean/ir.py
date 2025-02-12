@@ -86,12 +86,20 @@ rename = lambda v: Renamer().run(v)
 
 
 @dataclass
+class Answer:
+    type: IR
+    value: Optional[IR] = None
+
+    def is_unsolved(self):
+        return self.value is None
+
+
+@dataclass(frozen=True)
 class Hole:
     loc: int
     is_user: bool
-    locals: list[Param[IR]]
-    type: IR
-    answer: Optional[IR] = None
+    locals: dict[int, Param[IR]]
+    answer: Answer
 
 
 @dataclass(frozen=True)
@@ -121,10 +129,10 @@ class Inliner:
                 return v
             case Placeholder(i) as ph:
                 h = self.holes[i]
-                h.type = self.run(h.type)
-                if h.answer is None:
+                h.answer.type = self.run(h.answer.type)
+                if h.answer.is_unsolved():
                     return ph
-                return self.run(h.answer)
+                return self.run(h.answer.value)
         raise AssertionError(v)  # pragma: no cover
 
     def run_with(self, a_name: Ident, a: IR, b: IR):
@@ -174,11 +182,11 @@ class Converter:
 
     def _solve(self, p: Placeholder, answer: IR):
         h = self.holes[p.id]
-        assert h.answer is None  # FIXME: can be not None here?
-        h.answer = answer
+        assert h.answer.is_unsolved()  # FIXME: can be not None here?
+        h.answer.value = answer
 
         if isinstance(answer, Ref):
-            for param in h.locals:
+            for param in h.locals.values():
                 if param.name.id == answer.name.id:
-                    assert self.eq(param.type, h.type)  # FIXME: will fail here?
+                    assert self.eq(param.type, h.answer.type)  # FIXME: will fail here?
         return True
