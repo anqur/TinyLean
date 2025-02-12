@@ -1,6 +1,5 @@
 from itertools import chain
 from dataclasses import dataclass, field
-from functools import reduce
 
 from . import Ident, Param, Declaration, ir, grammar, fresh
 
@@ -40,31 +39,6 @@ class Call(Node):
 @dataclass(frozen=True)
 class Placeholder(Node):
     is_user: bool
-
-
-grammar.IDENT.set_parse_action(lambda r: Ident(r[0]))
-grammar.TYPE.set_parse_action(lambda l, r: Type(l))
-grammar.PLACEHOLDER.set_parse_action(lambda l, r: Placeholder(l, True))
-grammar.REF.set_parse_action(lambda l, r: Ref(l, r[0]))
-grammar.paren_expr.set_parse_action(lambda r: r[0])
-grammar.implicit_param.set_parse_action(lambda r: Param(r[0], r[1], True))
-grammar.explicit_param.set_parse_action(lambda r: Param(r[0], r[1], False))
-grammar.function_type.set_parse_action(lambda l, r: FnType(l, r[0], r[1]))
-grammar.function.set_parse_action(
-    lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
-)
-grammar.call.set_parse_action(
-    lambda l, r: reduce(lambda a, b: Call(l, a, b), r[1:], r[0])
-)
-grammar.return_type.set_parse_action(
-    lambda l, r: r[0] if len(r) > 0 else Placeholder(l, False)
-)
-grammar.definition.set_parse_action(
-    lambda r: Declaration(r[0].loc, r[0].name, list(r[1]), r[2], r[3])
-)
-grammar.example.set_parse_action(
-    lambda l, r: Declaration(l, Ident("_"), list(r[0]), r[1], r[2])
-)
 
 
 @dataclass(frozen=True)
