@@ -43,6 +43,45 @@ class Placeholder(Node):
     is_user: bool
 
 
+# TODO: Testing.
+def _with_placeholders(
+    f: Node, f_ty: ir.IR, implicit: str | bool
+) -> Node | None:  # pragma: no cover
+    if not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit:
+        return None
+    if isinstance(implicit, bool):
+        return _call_placeholder(f) if implicit else None
+
+    pending = 0
+    while True:
+        # FIXME: Would fail with `{a: Type} -> Type`?
+        assert isinstance(f_ty, ir.FnType)
+
+        if not f_ty.param.is_implicit:
+            raise UndefinedImplicitParam(implicit, f.loc)
+        if f_ty.param.name.text == implicit:
+            break
+        pending += 1
+        f_ty = f_ty.ret
+
+    if not pending:
+        return None
+
+    for _ in range(pending):
+        f = _call_placeholder(f)
+    return f
+
+
+# TODO: Testing.
+def _call_placeholder(f: Node):  # pragma: no cover
+    return Call(f.loc, f, Placeholder(f.loc, False), False)
+
+
+# TODO: Testing.
+def _can_permit_placeholders(f_ty: ir.IR):  # pragma: no cover
+    return not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit
+
+
 _g.name.set_parse_action(lambda r: Name(r[0][0]))
 _g.type_.set_parse_action(lambda l, r: Type(l))
 _g.ph.set_parse_action(lambda l, r: Placeholder(l, True))
@@ -197,6 +236,12 @@ class TypeChecker:
                 val, got = self.infer(n)
                 got = self._inliner().run(got)
                 want = self._inliner().run(typ)
+
+                # TODO: Testing.
+                if _can_permit_placeholders(want):  # pragma: no cover
+                    if new_f := _with_placeholders(n, got, False):
+                        val, got = self.infer(new_f)
+
                 if ir.Converter(self.holes).eq(got, want):
                     return val
                 raise TypeMismatchError(str(want), str(got), n.loc)
@@ -215,8 +260,13 @@ class TypeChecker:
                 inferred_p = Param(p.name, p_typ, p.is_implicit)
                 b_val = self._check_with(inferred_p, b, ir.Type())
                 return ir.FnType(inferred_p, b_val), ir.Type()
-            case Call(_, f, x, _):
+            case Call(loc, f, x, i):
                 f_val, f_typ = self.infer(f)
+
+                # TODO: Testing.
+                if implicit_f := _with_placeholders(f, f_typ, i):  # pragma: no cover
+                    return self.infer(Call(loc, implicit_f, x, i))
+
                 match f_typ:
                     case ir.FnType(p, b):
                         x_tm = self._check_with(p, x, p.type)
@@ -247,15 +297,6 @@ class TypeChecker:
         i = fresh()
         self.holes[i] = ir.Hole(loc, is_user, self.locals.copy(), ir.Answer(typ))
         return ir.Placeholder(i, is_user)
-
-    def _with_placeholders(
-        self, callee: Node, callee_ty: ir.IR, implicit: str | bool
-    ):  # pragma: no cover
-        if not isinstance(callee_ty, ir.FnType) or not callee_ty.param.is_implicit:
-            return None
-        # TODO
-        if implicit is None:
-            pass
 
 
 def check_string(text: str, is_markdown=False):
