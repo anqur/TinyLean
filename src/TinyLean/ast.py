@@ -1,7 +1,8 @@
+from functools import reduce
 from itertools import chain
 from dataclasses import dataclass, field
 
-from . import Ident, Param, Declaration, ir, grammar, fresh
+from . import Ident, Param, Decl, ir, grammar as _g, fresh
 
 
 @dataclass(frozen=True)
@@ -41,14 +42,33 @@ class Placeholder(Node):
     is_user: bool
 
 
+_g.IDENT.set_parse_action(lambda r: Ident(r[0]))
+_g.type_.set_parse_action(lambda l, r: Type(l))
+_g.placeholder.set_parse_action(lambda l, r: Placeholder(l, True))
+_g.ref.set_parse_action(lambda l, r: Ref(l, r[0][0]))
+_g.implicit_param.set_parse_action(lambda r: Param(r[0], r[1], True))
+_g.explicit_param.set_parse_action(lambda r: Param(r[0], r[1], False))
+_g.fn_type.set_parse_action(lambda l, r: FnType(l, r[0], r[1]))
+_g.fn.set_parse_action(
+    lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
+)
+_g.call.set_parse_action(lambda l, r: reduce(lambda a, b: Call(l, a, b), r[1:], r[0]))
+_g.paren_expr.set_parse_action(lambda r: r[0])
+_g.return_type.set_parse_action(lambda l, r: r[0] if len(r) else Placeholder(l, False))
+_g.definition.set_parse_action(
+    lambda r: Decl(r[0].loc, r[0].name, list(r[1]), r[2], r[3])
+)
+_g.example.set_parse_action(lambda l, r: Decl(l, Ident("_"), list(r[0]), r[1], r[2]))
+
+
 @dataclass(frozen=True)
 class Parser:
     is_markdown: bool = False
 
     def __ror__(self, s: str):
         if not self.is_markdown:
-            return list(grammar.program.parse_string(s, parse_all=True))
-        return chain.from_iterable(r[0] for r in grammar.markdown.scan_string(s))
+            return list(_g.program.parse_string(s, parse_all=True))
+        return chain.from_iterable(r[0] for r in _g.markdown.scan_string(s))
 
 
 class DuplicateVariableError(Exception): ...
@@ -62,10 +82,10 @@ class NameResolver:
     locals: dict[str, Ident] = field(default_factory=dict)
     globals: dict[str, Ident] = field(default_factory=dict)
 
-    def __ror__(self, decls: list[Declaration[Node]]):
+    def __ror__(self, decls: list[Decl[Node]]):
         return [self.decl(d) for d in decls]
 
-    def decl(self, d: Declaration[Node]):
+    def decl(self, d: Decl[Node]):
         params = []
         for p in d.params:
             self._insert_local(p.name)
@@ -79,7 +99,7 @@ class NameResolver:
             self.globals[d.name.text] = d.name
 
         self.locals.clear()
-        return Declaration(d.loc, d.name, params, ret, body)
+        return Decl(d.loc, d.name, params, ret, body)
 
     def expr(self, node: Node) -> Node:
         match node:
@@ -129,11 +149,11 @@ class UnsolvedPlaceholderError(Exception): ...
 
 @dataclass(frozen=True)
 class TypeChecker:
-    globals: dict[int, Declaration[ir.IR]] = field(default_factory=dict)
+    globals: dict[int, Decl[ir.IR]] = field(default_factory=dict)
     locals: dict[int, Param[ir.IR]] = field(default_factory=dict)
     holes: dict[int, ir.Hole] = field(default_factory=dict)
 
-    def __ror__(self, ds: list[Declaration[Node]]):
+    def __ror__(self, ds: list[Decl[Node]]):
         ret = [self._run(d) for d in ds]
         for i, h in self.holes.items():
             if h.answer.is_unsolved():
@@ -142,7 +162,7 @@ class TypeChecker:
                 raise UnsolvedPlaceholderError(str(p), h.locals, ty, h.loc)
         return ret
 
-    def _run(self, d: Declaration[Node]) -> Declaration[ir.IR]:
+    def _run(self, d: Decl[Node]) -> Decl[ir.IR]:
         self.locals.clear()
         params = []
         for p in d.params:
@@ -151,7 +171,7 @@ class TypeChecker:
             params.append(param)
         ret = self.check(d.ret, ir.Type())
         body = self.check(d.body, ret)
-        checked = Declaration(d.loc, d.name, params, ret, body)
+        checked = Decl(d.loc, d.name, params, ret, body)
         self.globals[d.name.id] = checked
         return checked
 

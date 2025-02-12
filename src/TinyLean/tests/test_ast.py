@@ -3,7 +3,7 @@ from typing import cast
 from unittest import TestCase
 
 from . import parse
-from .. import ast, Ident, grammar, Param, Declaration, ir
+from .. import ast, Ident, grammar, Param, Decl, ir
 
 
 class TestIdent(TestCase):
@@ -92,7 +92,7 @@ class TestParser(TestCase):
         self.assertEqual(16, x.arg.loc)
 
     def test_parse_function_type(self):
-        x = parse(grammar.function_type, "  (a : Type) -> a")[0]
+        x = parse(grammar.fn_type, "  (a : Type) -> a")[0]
         self.assertEqual(ast.FnType, type(x))
         self.assertEqual(Param, type(x.param))
         self.assertEqual("a", x.param.name.text)
@@ -103,7 +103,7 @@ class TestParser(TestCase):
         self.assertEqual(16, x.ret.loc)
 
     def test_parse_function_type_long(self):
-        x = parse(grammar.function_type, " {a : Type} -> (b: Type) -> a")[0]
+        x = parse(grammar.fn_type, " {a : Type} -> (b: Type) -> a")[0]
         self.assertEqual(ast.FnType, type(x))
         self.assertEqual(Param, type(x.param))
         self.assertEqual("a", x.param.name.text)
@@ -119,7 +119,7 @@ class TestParser(TestCase):
         self.assertEqual(28, x.ret.ret.loc)
 
     def test_parse_function(self):
-        x = parse(grammar.function, "  fun a => a")[0]
+        x = parse(grammar.fn, "  fun a => a")[0]
         self.assertEqual(ast.Fn, type(x))
         self.assertEqual(2, x.loc)
         self.assertEqual(Ident, type(x.param))
@@ -129,7 +129,7 @@ class TestParser(TestCase):
         self.assertEqual(11, x.body.loc)
 
     def test_parse_function_long(self):
-        x = parse(grammar.function, "   fun a => fun b => a b")[0]
+        x = parse(grammar.fn, "   fun a => fun b => a b")[0]
         self.assertEqual(ast.Fn, type(x))
         self.assertEqual(3, x.loc)
         self.assertEqual(Ident, type(x.param))
@@ -146,7 +146,7 @@ class TestParser(TestCase):
         self.assertEqual("b", x.body.body.arg.name.text)
 
     def test_parse_function_multi(self):
-        x = parse(grammar.function, "  fun c d => c d")[0]
+        x = parse(grammar.fn, "  fun c d => c d")[0]
         self.assertEqual(ast.Fn, type(x))
         self.assertEqual(2, x.loc)
         self.assertEqual(Ident, type(x.param))
@@ -158,7 +158,7 @@ class TestParser(TestCase):
 
     def test_parse_definition_constant(self):
         x = parse(grammar.definition, "  def f : Type := Type")[0]
-        self.assertEqual(Declaration, type(x))
+        self.assertEqual(Decl, type(x))
         self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
         self.assertEqual(0, len(x.params))
@@ -169,7 +169,7 @@ class TestParser(TestCase):
 
     def test_parse_definition(self):
         x = parse(grammar.definition, "  def f {a: Type} (b: Type): Type := a")[0]
-        self.assertEqual(Declaration, type(x))
+        self.assertEqual(Decl, type(x))
         self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
         self.assertEqual(list, type(x.params))
@@ -196,14 +196,14 @@ class TestParser(TestCase):
             )
         )
         self.assertEqual(2, len(x))
-        self.assertEqual(Declaration, type(x[0]))
+        self.assertEqual(Decl, type(x[0]))
         self.assertEqual("a", x[0].name.text)
-        self.assertEqual(Declaration, type(x[1]))
+        self.assertEqual(Decl, type(x[1]))
         self.assertEqual("b", x[1].name.text)
 
     def test_parse_example(self):
         x = parse(grammar.example, "  example: Type := Type")[0]
-        self.assertEqual(Declaration, type(x))
+        self.assertEqual(Decl, type(x))
         self.assertEqual(2, x.loc)
         self.assertTrue(x.name.is_unbound())
         self.assertEqual(0, len(x.params))
@@ -211,7 +211,7 @@ class TestParser(TestCase):
         self.assertEqual(ast.Type, type(x.body))
 
     def test_parse_placeholder(self):
-        x = parse(grammar.function, " fun _ => _")[0]
+        x = parse(grammar.fn, " fun _ => _")[0]
         self.assertEqual(ast.Fn, type(x))
         self.assertTrue(x.param.is_unbound())
         self.assertEqual(ast.Placeholder, type(x.body))

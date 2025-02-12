@@ -36,7 +36,7 @@ class Param[T]:
 
 
 @dataclass(frozen=True)
-class Declaration[T]:
+class Decl[T]:
     loc: int
     name: Ident
     params: list[Param[T]]
