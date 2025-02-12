@@ -229,7 +229,7 @@ class TestParser(TestCase):
         self.assertFalse(x.ret.is_user)
 
     def test_parse_call_implicit(self):
-        x = parse(grammar.call, "a (T:=Nat)")[0]
+        x = parse(grammar.call, "a ( T := Nat )")[0]
         assert isinstance(x, ast.Call)
         assert isinstance(x.callee, ast.Ref)
         self.assertEqual("a", x.callee.name.text)
