@@ -32,15 +32,10 @@ class Fn(Node):
 
 
 @dataclass(frozen=True)
-class Arg(Node):
-    implicit_to: str | None
-    value: Node
-
-
-@dataclass(frozen=True)
 class Call(Node):
     callee: Node
-    arg: Arg
+    arg: Node
+    implicit_to: str | None
 
 
 @dataclass(frozen=True)
@@ -58,9 +53,11 @@ _g.fn_type.set_parse_action(lambda l, r: FnType(l, r[0], r[1]))
 _g.fn.set_parse_action(
     lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
 )
-_g.i_arg.set_parse_action(lambda l, r: Arg(l, r[0], r[1]))
-_g.e_arg.set_parse_action(lambda l, r: Arg(l, None, r[0]))
-_g.call.set_parse_action(lambda l, r: reduce(lambda a, b: Call(l, a, b), r[1:], r[0]))
+_g.i_arg.set_parse_action(lambda l, r: (r[1], r[0]))
+_g.e_arg.set_parse_action(lambda l, r: (r[0], None))
+_g.call.set_parse_action(
+    lambda l, r: reduce(lambda a, b: Call(l, a, b[0], b[1]), r[1:], r[0])
+)
 _g.p_expr.set_parse_action(lambda r: r[0])
 _g.return_type.set_parse_action(lambda l, r: r[0] if len(r) else Placeholder(l, False))
 _g.definition.set_parse_action(
@@ -124,9 +121,8 @@ class NameResolver:
             case Fn(loc, v, body):
                 b = self._guard_local(v, body)
                 return Fn(loc, v, b)
-            case Call(loc, f, x):
-                arg = Arg(loc, x.implicit_to, self.expr(x.value))
-                return Call(loc, self.expr(f), arg)
+            case Call(loc, f, x, n):
+                return Call(loc, self.expr(f), self.expr(x), n)
             case Type() | Placeholder():
                 return node
         raise AssertionError(node)  # pragma: no cover
@@ -216,11 +212,11 @@ class TypeChecker:
                 inferred_p = Param(p.name, p_typ, p.implicit)
                 b_val = self._check_with(inferred_p, b, ir.Type())
                 return ir.FnType(inferred_p, b_val), ir.Type()
-            case Call(_, f, x):
+            case Call(_, f, x, _):
                 f_tm, f_typ = self.infer(f)
                 match f_typ:
                     case ir.FnType(p, b):
-                        x_tm = self._check_with(p, x.value, p.type)
+                        x_tm = self._check_with(p, x, p.type)
                         typ = self._inliner().run_with(p.name, x_tm, b)
                         val = self._inliner().apply(f_tm, x_tm)
                         return val, typ
