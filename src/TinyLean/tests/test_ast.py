@@ -14,7 +14,7 @@ class TestIdent(TestCase):
 class TestParser(TestCase):
     def test_parse_name(self):
         x = parse(grammar.name, "  hello")[0]
-        self.assertEqual(Name, type(x))
+        assert isinstance(x, Name)
         self.assertEqual("hello", x.text)
 
     def test_parse_name_unbound(self):
@@ -23,35 +23,35 @@ class TestParser(TestCase):
 
     def test_parse_type(self):
         x = parse(grammar.type_, "  Type")[0]
-        self.assertEqual(ast.Type, type(x))
+        assert isinstance(x, ast.Type)
         self.assertEqual(2, x.loc)
 
     def test_parse_reference(self):
         x = parse(grammar.ref, "  hello")[0]
-        self.assertEqual(ast.Ref, type(x))
+        assert isinstance(x, ast.Ref)
         self.assertEqual(2, x.loc)
         self.assertEqual("hello", x.name.text)
 
     def test_parse_paren_expr(self):
         x = parse(grammar.p_expr, "(hello)")[0]
-        self.assertEqual(ast.Ref, type(x))
+        assert isinstance(x, ast.Ref)
         self.assertEqual(1, x.loc)
         self.assertEqual("hello", x.name.text)
 
     def test_parse_implicit_param(self):
         x = parse(grammar.implicit_param, " {a: b}")[0]
-        self.assertEqual(Param, type(x))
+        assert isinstance(x, Param)
         self.assertTrue(x.implicit)
         self.assertEqual("a", x.name.text)
-        self.assertEqual(ast.Ref, type(x.type))
+        assert isinstance(x.type, ast.Ref)
         self.assertEqual(5, x.type.loc)
 
     def test_parse_explicit_param(self):
         x = parse(grammar.explicit_param, " (a : Type)")[0]
-        self.assertEqual(Param, type(x))
+        assert isinstance(x, Param)
         self.assertFalse(x.implicit)
         self.assertEqual("a", x.name.text)
-        self.assertEqual(ast.Type, type(x.type))
+        assert isinstance(x.type, ast.Type)
         self.assertEqual(6, x.type.loc)
 
     def test_parse_call(self):
@@ -97,38 +97,38 @@ class TestParser(TestCase):
 
     def test_parse_function_type(self):
         x = parse(grammar.fn_type, "  (a : Type) -> a")[0]
-        self.assertEqual(ast.FnType, type(x))
-        self.assertEqual(Param, type(x.param))
+        assert isinstance(x, ast.FnType)
+        assert isinstance(x.param, Param)
         self.assertEqual("a", x.param.name.text)
-        self.assertEqual(ast.Type, type(x.param.type))
+        assert isinstance(x.param.type, ast.Type)
         self.assertEqual(7, x.param.type.loc)
-        self.assertEqual(ast.Ref, type(x.ret))
+        assert isinstance(x.ret, ast.Ref)
         self.assertEqual("a", x.ret.name.text)
         self.assertEqual(16, x.ret.loc)
 
     def test_parse_function_type_long(self):
         x = parse(grammar.fn_type, " {a : Type} -> (b: Type) -> a")[0]
-        self.assertEqual(ast.FnType, type(x))
-        self.assertEqual(Param, type(x.param))
+        assert isinstance(x, ast.FnType)
+        assert isinstance(x.param, Param)
         self.assertEqual("a", x.param.name.text)
-        self.assertEqual(ast.Type, type(x.param.type))
+        assert isinstance(x.param.type, ast.Type)
         self.assertEqual(6, x.param.type.loc)
-        self.assertEqual(ast.FnType, type(x.ret))
-        self.assertEqual(Param, type(x.ret.param))
+        assert isinstance(x.ret, ast.FnType)
+        assert isinstance(x.ret.param, Param)
         self.assertEqual("b", x.ret.param.name.text)
-        self.assertEqual(ast.Type, type(x.ret.param.type))
+        assert isinstance(x.ret.param.type, ast.Type)
         self.assertEqual(19, x.ret.param.type.loc)
-        self.assertEqual(ast.Ref, type(x.ret.ret))
+        assert isinstance(x.ret.ret, ast.Ref)
         self.assertEqual("a", x.ret.ret.name.text)
         self.assertEqual(28, x.ret.ret.loc)
 
     def test_parse_function(self):
         x = parse(grammar.fn, "  fun a => a")[0]
-        self.assertEqual(ast.Fn, type(x))
+        assert isinstance(x, ast.Fn)
         self.assertEqual(2, x.loc)
-        self.assertEqual(Name, type(x.param))
+        assert isinstance(x.param, Name)
         self.assertEqual("a", x.param.text)
-        self.assertEqual(ast.Ref, type(x.body))
+        assert isinstance(x.body, ast.Ref)
         self.assertEqual("a", x.body.name.text)
         self.assertEqual(11, x.body.loc)
 
@@ -152,42 +152,42 @@ class TestParser(TestCase):
 
     def test_parse_function_multi(self):
         x = parse(grammar.fn, "  fun c d => c d")[0]
-        self.assertEqual(ast.Fn, type(x))
+        assert isinstance(x, ast.Fn)
         self.assertEqual(2, x.loc)
-        self.assertEqual(Name, type(x.param))
+        assert isinstance(x.param, Name)
         self.assertEqual("c", x.param.text)
-        self.assertEqual(ast.Fn, type(x.body))
+        assert isinstance(x.body, ast.Fn)
         self.assertEqual(2, x.body.loc)
-        self.assertEqual(Name, type(x.body.param))
+        assert isinstance(x.body.param, Name)
         self.assertEqual("d", x.body.param.text)
 
     def test_parse_definition_constant(self):
         x = parse(grammar.definition, "  def f : Type := Type")[0]
-        self.assertEqual(Decl, type(x))
+        assert isinstance(x, Decl)
         self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
         self.assertEqual(0, len(x.params))
-        self.assertEqual(ast.Type, type(x.ret))
+        assert isinstance(x.ret, ast.Type)
         self.assertEqual(10, x.ret.loc)
-        self.assertEqual(ast.Type, type(x.body))
+        assert isinstance(x.body, ast.Type)
         self.assertEqual(18, x.body.loc)
 
     def test_parse_definition(self):
         x = parse(grammar.definition, "  def f {a: Type} (b: Type): Type := a")[0]
-        self.assertEqual(Decl, type(x))
+        assert isinstance(x, Decl)
         self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
-        self.assertEqual(list, type(x.params))
+        assert isinstance(x.params, list)
         self.assertEqual(2, len(x.params))
-        self.assertEqual(ast.Param, type(x.params[0]))
+        assert isinstance(x.params[0], ast.Param)
         self.assertTrue(x.params[0].implicit)
         self.assertEqual("a", x.params[0].name.text)
-        self.assertEqual(ast.Type, type(x.params[0].type))
+        assert isinstance(x.params[0].type, ast.Type)
         self.assertEqual(12, x.params[0].type.loc)
-        self.assertEqual(ast.Param, type(x.params[1]))
+        assert isinstance(x.params[1], ast.Param)
         self.assertFalse(x.params[1].implicit)
         self.assertEqual("b", x.params[1].name.text)
-        self.assertEqual(ast.Type, type(x.params[1].type))
+        assert isinstance(x.params[1].type, ast.Type)
         self.assertEqual(22, x.params[1].type.loc)
 
     def test_parse_program(self):
@@ -201,40 +201,40 @@ class TestParser(TestCase):
             )
         )
         self.assertEqual(2, len(x))
-        self.assertEqual(Decl, type(x[0]))
+        assert isinstance(x[0], Decl)
         self.assertEqual("a", x[0].name.text)
-        self.assertEqual(Decl, type(x[1]))
+        assert isinstance(x[1], Decl)
         self.assertEqual("b", x[1].name.text)
 
     def test_parse_example(self):
         x = parse(grammar.example, "  example: Type := Type")[0]
-        self.assertEqual(Decl, type(x))
+        assert isinstance(x, Decl)
         self.assertEqual(2, x.loc)
         self.assertTrue(x.name.is_unbound())
         self.assertEqual(0, len(x.params))
-        self.assertEqual(ast.Type, type(x.ret))
-        self.assertEqual(ast.Type, type(x.body))
+        assert isinstance(x.ret, ast.Type)
+        assert isinstance(x.body, ast.Type)
 
     def test_parse_placeholder(self):
         x = parse(grammar.fn, " fun _ => _")[0]
-        self.assertEqual(ast.Fn, type(x))
+        assert isinstance(x, ast.Fn)
         self.assertTrue(x.param.is_unbound())
-        self.assertEqual(ast.Placeholder, type(x.body))
+        assert isinstance(x.body, ast.Placeholder)
         self.assertEqual(10, x.body.loc)
 
     def test_parse_return_type(self):
         x = parse(grammar.return_type, ": Type")[0]
-        self.assertEqual(ast.Type, type(x))
+        assert isinstance(x, ast.Type)
         self.assertEqual(2, x.loc)
 
     def test_parse_return_placeholder(self):
         x = parse(grammar.return_type, "")[0]
-        self.assertEqual(ast.Placeholder, type(x))
+        assert isinstance(x, ast.Placeholder)
         self.assertFalse(x.is_user)
 
     def test_parse_definition_no_return(self):
         x = parse(grammar.definition, "def a := Type")[0]
-        self.assertEqual(ast.Placeholder, type(x.ret))
+        assert isinstance(x.ret, ast.Placeholder)
         self.assertFalse(x.ret.is_user)
 
     def test_parse_implicit_arg(self):
@@ -375,8 +375,8 @@ class TestTypeChecker(TestCase):
 
     def test_infer_expr_type(self):
         v, ty = infer_expr("Type")
-        self.assertEqual(ir.Type, type(v))
-        self.assertEqual(ir.Type, type(ty))
+        assert isinstance(v, ir.Type)
+        assert isinstance(ty, ir.Type)
 
     def test_infer_expr_call_failed(self):
         with self.assertRaises(ast.TypeMismatchError) as e:
@@ -388,9 +388,9 @@ class TestTypeChecker(TestCase):
 
     def test_infer_expr_function_type(self):
         v, ty = infer_expr("{a: Type} -> a")
-        self.assertEqual(ir.FnType, type(v))
+        assert isinstance(v, ir.FnType)
         self.assertEqual("{a: Type} → a", str(v))
-        self.assertEqual(ir.Type, type(ty))
+        assert isinstance(ty, ir.Type)
 
     def test_check_program(self):
         ast.check_string("def a: Type := Type")
@@ -445,7 +445,7 @@ class TestTypeChecker(TestCase):
         name, ctx, ty, loc = e.exception.args
         self.assertTrue(name.startswith("?u"))
         self.assertEqual(0, len(ctx))
-        self.assertEqual(ir.Type, type(ty))
+        assert isinstance(ty, ir.Type)
         self.assertEqual(15, loc)
 
 
