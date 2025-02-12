@@ -225,6 +225,7 @@ class TestParser(TestCase):
 
     def test_parse_definition_no_return(self):
         x = parse(grammar.definition, "def a := Type")[0]
+        assert isinstance(x, Decl)
         assert isinstance(x.ret, ast.Placeholder)
         self.assertFalse(x.ret.is_user)
 
@@ -237,3 +238,23 @@ class TestParser(TestCase):
         self.assertEqual("T", x.implicit_to)
         assert isinstance(x.arg, ast.Ref)
         self.assertEqual("Nat", x.arg.name.text)
+
+    def test_parse_definition_call_implicit(self):
+        x = parse(
+            grammar.definition,
+            """
+            def f: Type := a ( 
+                T := Nat 
+            ) b
+            """,
+        )[0]
+        assert isinstance(x, Decl)
+        assert isinstance(x.body, ast.Call)
+        assert isinstance(x.body.callee, ast.Call)
+        assert isinstance(x.body.callee.callee, ast.Ref)
+        self.assertEqual("a", x.body.callee.callee.name.text)
+        assert isinstance(x.body.callee.arg, ast.Ref)
+        self.assertEqual("Nat", x.body.callee.arg.name.text)
+        self.assertEqual("T", x.body.callee.implicit_to)
+        assert isinstance(x.body.arg, ast.Ref)
+        self.assertEqual("b", x.body.arg.name.text)
