@@ -74,12 +74,6 @@ def _call_placeholder(f: Node):
     return Call(f.loc, f, Placeholder(f.loc, False), True)
 
 
-def _can_use_placeholders(f_ty: ir.IR):
-    # FIXME: No valid tests for this yet, we cannot insert placeholders for implicit function types.
-    assert not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit
-    return True
-
-
 _g.name.set_parse_action(lambda r: Name(r[0][0]))
 _g.type_.set_parse_action(lambda l, r: Type(l))
 _g.ph.set_parse_action(lambda l, r: Placeholder(l, True))
@@ -235,9 +229,13 @@ class TypeChecker:
                 got = self._inliner().run(got)
                 want = self._inliner().run(typ)
 
-                if _can_use_placeholders(want):
-                    if new_f := _with_placeholders(n, got, False):
-                        val, got = self.infer(new_f)
+                # Check if we can insert placeholders for `val` of type `want` here.
+                #
+                # FIXME: No valid tests for this yet, we cannot insert placeholders for implicit function types.
+                # Change this to an actual check if we got any examples.
+                assert not isinstance(want, ir.FnType) or not want.param.is_implicit
+                if new_f := _with_placeholders(n, got, False):
+                    val, got = self.infer(new_f)
 
                 if ir.Converter(self.holes).eq(got, want):
                     return val
