@@ -143,3 +143,25 @@ Footer.
             example: Type := T
             """
         )
+
+    def test_leibniz_equality_implicit(self):
+        ast.check_string(
+            """
+            def Eq {T: Type} (a: T) (b: T): Type :=
+                (p: (v: T) -> Type) -> (pa: p a) -> p b
+
+            def refl {T: Type} (a: T): Eq a a :=
+                fun p pa => pa
+
+            def sym {T: Type} (a: T) (b: T) (p: Eq a b): Eq b a :=
+                (p (fun b => Eq b a)) (refl a)
+
+            def A: Type := Type
+
+            def B: Type := Type
+
+            def lemma: Eq A B := refl A
+
+            def theorem (p: Eq A B): Eq B A := sym A B lemma
+            """
+        )

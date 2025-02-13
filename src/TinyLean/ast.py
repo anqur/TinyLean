@@ -43,14 +43,12 @@ class Placeholder(Node):
     is_user: bool
 
 
-# TODO: Testing.
-def _with_placeholders(
-    f: Node, f_ty: ir.IR, implicit: str | bool
-) -> Node | None:  # pragma: no cover
+def _with_placeholders(f: Node, f_ty: ir.IR, implicit: str | bool) -> Node | None:
     if not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit:
         return None
+
     if isinstance(implicit, bool):
-        return _call_placeholder(f) if implicit else None
+        return _call_placeholder(f) if not implicit else None
 
     pending = 0
     while True:
@@ -72,14 +70,14 @@ def _with_placeholders(
     return f
 
 
-# TODO: Testing.
-def _call_placeholder(f: Node):  # pragma: no cover
-    return Call(f.loc, f, Placeholder(f.loc, False), False)
+def _call_placeholder(f: Node):
+    return Call(f.loc, f, Placeholder(f.loc, False), True)
 
 
-# TODO: Testing.
-def _can_permit_placeholders(f_ty: ir.IR):  # pragma: no cover
-    return not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit
+def _can_use_placeholders(f_ty: ir.IR):
+    # FIXME: No valid tests for this yet, we cannot insert placeholders for implicit function types.
+    assert not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit
+    return True
 
 
 _g.name.set_parse_action(lambda r: Name(r[0][0]))
@@ -237,8 +235,7 @@ class TypeChecker:
                 got = self._inliner().run(got)
                 want = self._inliner().run(typ)
 
-                # TODO: Testing.
-                if _can_permit_placeholders(want):  # pragma: no cover
+                if _can_use_placeholders(want):
                     if new_f := _with_placeholders(n, got, False):
                         val, got = self.infer(new_f)
 
@@ -263,8 +260,7 @@ class TypeChecker:
             case Call(loc, f, x, i):
                 f_val, f_typ = self.infer(f)
 
-                # TODO: Testing.
-                if implicit_f := _with_placeholders(f, f_typ, i):  # pragma: no cover
+                if implicit_f := _with_placeholders(f, f_typ, i):
                     return self.infer(Call(loc, implicit_f, x, i))
 
                 match f_typ:

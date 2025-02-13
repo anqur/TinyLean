@@ -45,6 +45,12 @@ def main():
         ty_msg = f"  {name} : {ty}"
         ctx_msg = "".join([f"\n  {p}" for p in ctx.values()]) if ctx else " (none)"
         fatal_on(text, loc, f"unsolved placeholder:\n{ty_msg}\n\ncontext:{ctx_msg}")
+    except ast.UndefinedImplicitParam as e:
+        name, loc = e.args
+        fatal_on(text, loc, f"undefined implicit parameter '{name}'")
+    except RecursionError as e:
+        print("Program too complex or oops you just got '⊥'! Please report this issue:")
+        raise e
     except AssertionError as e:
         print("Internal compiler error! Please report this issue:")
         raise e

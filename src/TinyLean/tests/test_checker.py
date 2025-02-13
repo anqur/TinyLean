@@ -111,3 +111,57 @@ class TestTypeChecker(TestCase):
         self.assertEqual(0, len(ctx))
         assert isinstance(ty, ir.Type)
         self.assertEqual(15, loc)
+
+    def test_check_program_call_implicit_arg(self):
+        _, _, example = ast.check_string(
+            """
+            def id {T: Type} (a: T): T := a
+            def f := id (T := Type) Type
+            example := f
+            """
+        )
+        assert isinstance(example.body, ir.Type)
+
+    def test_check_program_call_implicit_arg_failed(self):
+        with self.assertRaises(ast.UndefinedImplicitParam) as e:
+            ast.check_string(
+                """
+                def id {T: Type} (a: T): T := a
+                def f := id (U := Type) Type
+                """
+            )
+        name, loc = e.exception.args
+        self.assertEqual("U", name)
+        self.assertEqual(74, loc)
+
+    def test_check_program_call_implicit_arg_long(self):
+        ast.check_string(
+            """
+            def f {T: Type} {U: Type} (a: U): Type := T
+            def g: f (U := Type) Type := Type
+            """
+        )
+
+    def test_check_program_call_implicit(self):
+        _, _, example = ast.check_string(
+            """
+            def id {T: Type} (a: T): T := a
+            def f := id Type
+            example := f
+            """
+        )
+        assert isinstance(example.body, ir.Type)
+
+    def test_check_program_call_no_explicit_failed(self):
+        with self.assertRaises(ast.UnsolvedPlaceholderError) as e:
+            ast.check_string(
+                """
+                def f {T: Type}: Type := T
+                def g: Type := f
+                """
+            )
+        name, ctx, ty, loc = e.exception.args
+        self.assertTrue(name.startswith("?m"))
+        self.assertEqual(1, len(ctx))
+        assert isinstance(ty, ir.Type)
+        self.assertEqual(75, loc)
