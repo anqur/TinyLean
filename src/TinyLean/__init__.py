@@ -45,3 +45,17 @@ class Example[T](Decl):
     params: list[Param[T]]
     ret: T
     body: T
+
+
+@dataclass(frozen=True)
+class Ctor[T](Decl):
+    name: Name
+    params: list[Param[T]]
+    guards: list[tuple[Name, T]]
+
+
+@dataclass(frozen=True)
+class Data[T](Decl):
+    name: Name
+    params: list[Param[T]]
+    ctors: list[Ctor[T]]

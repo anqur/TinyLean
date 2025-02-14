@@ -3,7 +3,7 @@ from unittest import TestCase
 from pyparsing import ParseException
 
 from . import parse
-from .. import ast, Name, grammar, Param, Decl, Def, Example
+from .. import ast, Name, grammar, Param, Decl, Def, Example, Data, Ctor
 
 
 class TestParser(TestCase):
@@ -269,9 +269,51 @@ class TestParser(TestCase):
         self.assertEqual("b", x.body.arg.name.text)
 
     def test_parse_datatype_empty(self):
-        parse(grammar.data, "inductive Foo open Foo")
+        x = parse(
+            grammar.data,
+            """
+            inductive Void where
+            open Void
+            """,
+        )[0]
+        assert isinstance(x, Data)
+        self.assertEqual("Void", x.name.text)
+        self.assertEqual(0, len(x.params))
+        self.assertEqual(0, len(x.ctors))
 
     def test_parse_datatype_empty_failed(self):
         with self.assertRaises(ParseException) as e:
-            parse(grammar.data, "inductive Foo open Bar")
+            parse(grammar.data, "inductive Foo where open Bar")
         self.assertIn("open and datatype name mismatch", str(e.exception))
+
+    def test_parse_datatype_ctors(self):
+        x = parse(
+            grammar.data,
+            """
+            inductive D {T: Type} (U: Type) where
+            | A
+            | B {X: Type} (Y: Type) (U := Type)
+            | C (T := Type)
+            open D
+            """,
+        )[0]
+        assert isinstance(x, Data)
+        self.assertEqual("D", x.name.text)
+        self.assertEqual(2, len(x.params))
+        self.assertEqual("T", x.params[0].name.text)
+        self.assertEqual("U", x.params[1].name.text)
+        self.assertEqual(3, len(x.ctors))
+        a, b, c = x.ctors
+        assert isinstance(a, Ctor)
+        self.assertEqual("A", a.name.text)
+        self.assertEqual(0, len(a.params))
+        assert isinstance(b, Ctor)
+        self.assertEqual("B", b.name.text)
+        self.assertEqual(2, len(b.params))
+        self.assertEqual(1, len(b.guards))
+        self.assertEqual("U", b.guards[0][0].text)
+        assert isinstance(c, Ctor)
+        self.assertEqual("C", c.name.text)
+        self.assertEqual(0, len(c.params))
+        self.assertEqual(1, len(c.guards))
+        self.assertEqual("T", c.guards[0][0].text)

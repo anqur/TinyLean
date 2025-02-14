@@ -4,8 +4,8 @@ COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 IDENT = unicode_set.identifier()
 
-DEF, EXAMPLE, INDUCTIVE, OPEN, TYPE = map(
-    lambda w: Suppress(Keyword(w)), "def example inductive open Type".split()
+DEF, EXAMPLE, INDUCTIVE, WHERE, OPEN, TYPE = map(
+    lambda w: Suppress(Keyword(w)), "def example inductive where open Type".split()
 )
 
 ASSIGN, ARROW, FUN, TO = map(
@@ -40,13 +40,13 @@ return_type = Opt(COLON + expr)
 params = Group(ZeroOrMore(i_param | e_param))
 definition = (DEF + ref + params + return_type + ASSIGN + expr).set_name("definition")
 example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
-constraint = i_arg.copy()
-ctor = BAR + name + Group(ZeroOrMore(i_param | e_param)) + ZeroOrMore(constraint)
+guard = (LPAREN + name + ASSIGN + expr + RPAREN).set_name("guard")
+ctor = (
+    BAR + ref + Group(ZeroOrMore(i_param | e_param)) + Group(ZeroOrMore(guard))
+).set_name("constructor")
 data = (
-    (INDUCTIVE + IDENT + Group(ZeroOrMore(ctor)) + OPEN + IDENT)
-    .add_condition(lambda r: r[0] == r[2], message="open and datatype name mismatch")
-    .set_name("datatype")
-)
+    INDUCTIVE + ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT
+).set_name("datatype")
 declaration = (definition | example | data).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
