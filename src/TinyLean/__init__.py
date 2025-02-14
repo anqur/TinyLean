@@ -1,13 +1,7 @@
 from dataclasses import dataclass, field
+from itertools import count
 
-
-_NEXT_ID = 0
-
-
-def fresh():
-    global _NEXT_ID
-    _NEXT_ID += 1
-    return _NEXT_ID
+fresh = count(1).__next__
 
 
 @dataclass(frozen=True)
