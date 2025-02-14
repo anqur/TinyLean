@@ -2,7 +2,7 @@ from functools import reduce
 from itertools import chain
 from dataclasses import dataclass, field
 
-from . import Name, Param, Decl, ir, grammar as _g, fresh
+from . import Name, Param, Decl, ir, grammar as _g, fresh, Def, Example
 
 
 @dataclass(frozen=True)
@@ -92,9 +92,9 @@ _g.call.set_parse_action(
 _g.p_expr.set_parse_action(lambda r: r[0])
 _g.return_type.set_parse_action(lambda l, r: r[0] if len(r) else Placeholder(l, False))
 _g.definition.set_parse_action(
-    lambda r: Decl(r[0].loc, r[0].name, list(r[1]), r[2], r[3])
+    lambda r: Def(r[0].loc, r[0].name, list(r[1]), r[2], r[3])
 )
-_g.example.set_parse_action(lambda l, r: Decl(l, Name("_"), list(r[0]), r[1], r[2]))
+_g.example.set_parse_action(lambda l, r: Example(l, list(r[0]), r[1], r[2]))
 
 
 @dataclass(frozen=True)
@@ -118,10 +118,18 @@ class NameResolver:
     locals: dict[str, Name] = field(default_factory=dict)
     globals: dict[str, Name] = field(default_factory=dict)
 
-    def __ror__(self, decls: list[Decl[Node]]):
-        return [self.decl(d) for d in decls]
+    def __ror__(self, decls: list[Decl]):
+        return [self._decl(d) for d in decls]
 
-    def decl(self, d: Decl[Node]):
+    def _decl(self, decl: Decl):
+        match decl:
+            case Def() | Example() as d:
+                return self._def_or_example(d)
+        raise AssertionError(decl)  # pragma: no cover
+
+    def _def_or_example(self, d: Def[Node] | Example[Node]):
+        self.locals.clear()
+
         params = []
         for p in d.params:
             self._insert_local(p.name)
@@ -129,13 +137,15 @@ class NameResolver:
         ret = self.expr(d.ret)
         body = self.expr(d.body)
 
+        if isinstance(d, Example):
+            return Example(d.loc, params, ret, body)
+
         if not d.name.is_unbound():
             if d.name.text in self.globals:
                 raise DuplicateVariableError(d.name, d.loc)
             self.globals[d.name.text] = d.name
 
-        self.locals.clear()
-        return Decl(d.loc, d.name, params, ret, body)
+        return Def(d.loc, d.name, params, ret, body)
 
     def expr(self, node: Node) -> Node:
         match node:
@@ -188,11 +198,11 @@ class UndefinedImplicitParam(Exception): ...
 
 @dataclass(frozen=True)
 class TypeChecker:
-    globals: dict[int, Decl[ir.IR]] = field(default_factory=dict)
+    globals: dict[int, Def[ir.IR]] = field(default_factory=dict)
     locals: dict[int, Param[ir.IR]] = field(default_factory=dict)
     holes: dict[int, ir.Hole] = field(default_factory=dict)
 
-    def __ror__(self, ds: list[Decl[Node]]):
+    def __ror__(self, ds: list[Decl]):
         ret = [self._run(d) for d in ds]
         for i, h in self.holes.items():
             if h.answer.is_unsolved():
@@ -201,8 +211,15 @@ class TypeChecker:
                 raise UnsolvedPlaceholderError(str(p), h.locals, ty, h.loc)
         return ret
 
-    def _run(self, d: Decl[Node]) -> Decl[ir.IR]:
+    def _run(self, decl: Decl):
+        match decl:
+            case Def() | Example() as d:
+                return self._def_or_example(d)
+        raise AssertionError(decl)  # pragma: no cover
+
+    def _def_or_example(self, d: Def[Node] | Example[Node]):
         self.locals.clear()
+
         params = []
         for p in d.params:
             param = Param(p.name, self.check(p.type, ir.Type()), p.is_implicit)
@@ -210,7 +227,11 @@ class TypeChecker:
             params.append(param)
         ret = self.check(d.ret, ir.Type())
         body = self.check(d.body, ret)
-        checked = Decl(d.loc, d.name, params, ret, body)
+
+        if isinstance(d, Example):
+            return Example(d.loc, params, ret, body)
+
+        checked = Def(d.loc, d.name, params, ret, body)
         self.globals[d.name.id] = checked
         return checked
 
@@ -248,7 +269,7 @@ class TypeChecker:
                     return ir.Ref(v), self.locals[v.id].type
                 if v.id in self.globals:
                     d = self.globals[v.id]
-                    return ir.decl_value(d), ir.decl_type(d)
+                    return ir.def_value(d), ir.def_type(d)
                 raise AssertionError(v)  # pragma: no cover
             case FnType(_, p, b):
                 p_typ = self.check(p.type, ir.Type())

@@ -28,9 +28,20 @@ class Param[T]:
 
 
 @dataclass(frozen=True)
-class Decl[T]:
+class Decl:
     loc: int
+
+
+@dataclass(frozen=True)
+class Def[T](Decl):
     name: Name
+    params: list[Param[T]]
+    ret: T
+    body: T
+
+
+@dataclass(frozen=True)
+class Example[T](Decl):
     params: list[Param[T]]
     ret: T
     body: T

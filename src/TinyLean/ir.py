@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import reduce
 from typing import Optional, cast
 
-from . import Name, Param, Decl
+from . import Name, Param, Def
 
 
 @dataclass(frozen=True)
@@ -86,11 +86,11 @@ class Renamer:
 _rn = lambda v: Renamer().run(v)
 
 
-def decl_type(d: Decl[IR]):
+def def_type(d: Def[IR]):
     return _rn(reduce(lambda a, p: cast(IR, FnType(p, a)), reversed(d.params), d.ret))
 
 
-def decl_value(d: Decl[IR]):
+def def_value(d: Def[IR]):
     return _rn(reduce(lambda a, p: cast(IR, Fn(p, a)), reversed(d.params), d.body))
 
 

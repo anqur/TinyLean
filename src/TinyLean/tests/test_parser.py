@@ -3,7 +3,7 @@ from unittest import TestCase
 from pyparsing import ParseException
 
 from . import parse
-from .. import ast, Name, grammar, Param, Decl
+from .. import ast, Name, grammar, Param, Decl, Def, Example
 
 
 class TestParser(TestCase):
@@ -156,7 +156,7 @@ class TestParser(TestCase):
 
     def test_parse_definition_constant(self):
         x = parse(grammar.definition, "  def f : Type := Type")[0]
-        assert isinstance(x, Decl)
+        assert isinstance(x, Def)
         self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
         self.assertEqual(0, len(x.params))
@@ -167,7 +167,7 @@ class TestParser(TestCase):
 
     def test_parse_definition(self):
         x = parse(grammar.definition, "  def f {a: Type} (b: Type): Type := a")[0]
-        assert isinstance(x, Decl)
+        assert isinstance(x, Def)
         self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
         assert isinstance(x.params, list)
@@ -201,9 +201,8 @@ class TestParser(TestCase):
 
     def test_parse_example(self):
         x = parse(grammar.example, "  example: Type := Type")[0]
-        assert isinstance(x, Decl)
+        assert isinstance(x, Example)
         self.assertEqual(2, x.loc)
-        self.assertTrue(x.name.is_unbound())
         self.assertEqual(0, len(x.params))
         assert isinstance(x.ret, ast.Type)
         assert isinstance(x.body, ast.Type)
@@ -227,7 +226,7 @@ class TestParser(TestCase):
 
     def test_parse_definition_no_return(self):
         x = parse(grammar.definition, "def a := Type")[0]
-        assert isinstance(x, Decl)
+        assert isinstance(x, Def)
         assert isinstance(x.ret, ast.Placeholder)
         self.assertFalse(x.ret.is_user)
 
@@ -258,7 +257,7 @@ class TestParser(TestCase):
             ) b
             """,
         )[0]
-        assert isinstance(x, Decl)
+        assert isinstance(x, Def)
         assert isinstance(x.body, ast.Call)
         assert isinstance(x.body.callee, ast.Call)
         assert isinstance(x.body.callee.callee, ast.Ref)
