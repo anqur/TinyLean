@@ -127,10 +127,13 @@ class NameResolver:
         return [self._decl(d) for d in decls]
 
     def _decl(self, decl: Decl):
-        match decl:
-            case Def() | Example() as d:
-                return self._def_or_example(d)
-        raise AssertionError(decl)  # pragma: no cover
+        # TODO
+        # if isinstance(decl, Def) or isinstance(decl, Example):
+        #     return self._def_or_example(decl)
+        # assert isinstance(decl, Data)
+        # return self._data(decl)
+        assert isinstance(decl, Def) or isinstance(decl, Example)
+        return self._def_or_example(decl)
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         self.locals.clear()
@@ -217,10 +220,8 @@ class TypeChecker:
         return ret
 
     def _run(self, decl: Decl):
-        match decl:
-            case Def() | Example() as d:
-                return self._def_or_example(d)
-        raise AssertionError(decl)  # pragma: no cover
+        assert isinstance(decl, Def) or isinstance(decl, Example)
+        return self._def_or_example(decl)
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         self.locals.clear()
@@ -241,31 +242,30 @@ class TypeChecker:
         return checked
 
     def check(self, n: Node, typ: ir.IR) -> ir.IR:
-        match n:
-            case Fn(loc, v, body):
-                match self._inliner().run(typ):
-                    case ir.FnType(p, b):
-                        body_type = self._inliner().run_with(p.name, ir.Ref(v), b)
-                        param = Param(v, p.type, p.is_implicit)
-                        return ir.Fn(param, self._check_with(param, body, body_type))
-                    case want:
-                        raise TypeMismatchError(str(want), "function", loc)
-            case _:
-                val, got = self.infer(n)
-                got = self._inliner().run(got)
-                want = self._inliner().run(typ)
+        if isinstance(n, Fn):
+            want = self._inliner().run(typ)
+            if not isinstance(want, ir.FnType):
+                raise TypeMismatchError(str(want), "function", n.loc)
+            ret = self._inliner().run_with(want.param.name, ir.Ref(n.param), want.ret)
+            param = Param(n.param, want.param.type, want.param.is_implicit)
+            return ir.Fn(param, self._check_with(param, n.body, ret))
 
-                # Check if we can insert placeholders for `val` of type `want` here.
-                #
-                # FIXME: No valid tests for this yet, we cannot insert placeholders for implicit function types.
-                # Change this to an actual check if we got any examples.
-                assert not isinstance(want, ir.FnType) or not want.param.is_implicit
-                if new_f := _with_placeholders(n, got, False):
-                    val, got = self.infer(new_f)
+        val, got = self.infer(n)
+        got = self._inliner().run(got)
+        want = self._inliner().run(typ)
 
-                if ir.Converter(self.holes).eq(got, want):
-                    return val
-                raise TypeMismatchError(str(want), str(got), n.loc)
+        # Check if we can insert placeholders for `val` of type `want` here.
+        #
+        # FIXME: No valid tests for this yet, we cannot insert placeholders for implicit function types.
+        # Change this to an actual check if we got any examples.
+        assert not isinstance(want, ir.FnType) or not want.param.is_implicit
+        if new_f := _with_placeholders(n, got, False):
+            val, got = self.infer(new_f)
+
+        if not ir.Converter(self.holes).eq(got, want):
+            raise TypeMismatchError(str(want), str(got), n.loc)
+
+        return val
 
     def infer(self, n: Node) -> tuple[ir.IR, ir.IR]:
         match n:
