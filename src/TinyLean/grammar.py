@@ -12,7 +12,7 @@ ASSIGN, ARROW, FUN, TO = map(
     lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split()
 )
 
-LPAREN, RPAREN, LBRACE, RBRACE, COLON, UNDER = map(Suppress, "(){}:_")
+LPAREN, RPAREN, LBRACE, RBRACE, COLON, UNDER, BAR = map(Suppress, "(){}:_|")
 inline_one_or_more = lambda e: OneOrMore(Opt(Suppress(White(" \t\r"))) + e)
 
 expr, fn_type, fn, call, i_arg, e_arg, p_expr, type_, ph, ref = map(
@@ -23,9 +23,9 @@ expr, fn_type, fn, call, i_arg, e_arg, p_expr, type_, ph, ref = map(
 expr <<= fn_type | fn | call | p_expr | type_ | ph | ref
 
 name = Group(IDENT).set_name("name")
-implicit_param = (LBRACE + name + COLON + expr + RBRACE).set_name("implicit_param")
-explicit_param = (LPAREN + name + COLON + expr + RPAREN).set_name("explicit_param")
-fn_type <<= (implicit_param | explicit_param) + ARROW + expr
+i_param = (LBRACE + name + COLON + expr + RBRACE).set_name("implicit_param")
+e_param = (LPAREN + name + COLON + expr + RPAREN).set_name("explicit_param")
+fn_type <<= (i_param | e_param) + ARROW + expr
 fn <<= FUN + Group(OneOrMore(name)) + TO + expr
 callee = ref | p_expr
 call <<= (callee + inline_one_or_more(i_arg | e_arg)).leave_whitespace()
@@ -37,17 +37,17 @@ ph <<= Group(UNDER)
 ref <<= Group(name)
 
 return_type = Opt(COLON + expr)
-params = Group(ZeroOrMore(implicit_param | explicit_param))
+params = Group(ZeroOrMore(i_param | e_param))
 definition = (DEF + ref + params + return_type + ASSIGN + expr).set_name("definition")
 example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
-datatype = (
-    (INDUCTIVE + name + OPEN + name)
-    .add_condition(
-        lambda r: str(r[0]) == str(r[1]), message="open and datatype name mismatch"
-    )
+constraint = i_arg.copy()
+ctor = BAR + name + Group(ZeroOrMore(i_param | e_param)) + ZeroOrMore(constraint)
+data = (
+    (INDUCTIVE + IDENT + Group(ZeroOrMore(ctor)) + OPEN + IDENT)
+    .add_condition(lambda r: r[0] == r[2], message="open and datatype name mismatch")
     .set_name("datatype")
 )
-declaration = (definition | example).set_name("declaration")
+declaration = (definition | example | data).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
 

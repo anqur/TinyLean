@@ -37,7 +37,7 @@ class TestParser(TestCase):
         self.assertEqual("hello", x.name.text)
 
     def test_parse_implicit_param(self):
-        x = parse(grammar.implicit_param, " {a: b}")[0]
+        x = parse(grammar.i_param, " {a: b}")[0]
         assert isinstance(x, Param)
         self.assertTrue(x.is_implicit)
         self.assertEqual("a", x.name.text)
@@ -45,7 +45,7 @@ class TestParser(TestCase):
         self.assertEqual(5, x.type.loc)
 
     def test_parse_explicit_param(self):
-        x = parse(grammar.explicit_param, " (a : Type)")[0]
+        x = parse(grammar.e_param, " (a : Type)")[0]
         assert isinstance(x, Param)
         self.assertFalse(x.is_implicit)
         self.assertEqual("a", x.name.text)
@@ -269,10 +269,10 @@ class TestParser(TestCase):
         assert isinstance(x.body.arg, ast.Ref)
         self.assertEqual("b", x.body.arg.name.text)
 
-    def test_parse_datatype(self):
-        parse(grammar.datatype, "inductive Foo open Foo")
+    def test_parse_datatype_empty(self):
+        parse(grammar.data, "inductive Foo open Foo")
 
-    def test_parse_datatype_failed(self):
+    def test_parse_datatype_empty_failed(self):
         with self.assertRaises(ParseException) as e:
-            parse(grammar.datatype, "inductive Foo open Bar")
-        self.assertTrue("open and datatype name mismatch" in str(e.exception))
+            parse(grammar.data, "inductive Foo open Bar")
+        self.assertIn("open and datatype name mismatch", str(e.exception))
