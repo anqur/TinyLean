@@ -4,8 +4,8 @@ COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 IDENT = unicode_set.identifier()
 
-DEF, EXAMPLE, INDUCTIVE, TYPE = map(
-    lambda w: Suppress(Keyword(w)), "def example inductive Type".split()
+DEF, EXAMPLE, INDUCTIVE, OPEN, TYPE = map(
+    lambda w: Suppress(Keyword(w)), "def example inductive open Type".split()
 )
 
 ASSIGN, ARROW, FUN, TO = map(
@@ -40,6 +40,13 @@ return_type = Opt(COLON + expr)
 params = Group(ZeroOrMore(implicit_param | explicit_param))
 definition = (DEF + ref + params + return_type + ASSIGN + expr).set_name("definition")
 example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
+datatype = (
+    (INDUCTIVE + name + OPEN + name)
+    .add_condition(
+        lambda r: str(r[0]) == str(r[1]), message="open and datatype name mismatch"
+    )
+    .set_name("datatype")
+)
 declaration = (definition | example).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")

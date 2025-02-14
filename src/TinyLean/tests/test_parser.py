@@ -1,5 +1,7 @@
 from unittest import TestCase
 
+from pyparsing import ParseException
+
 from . import parse
 from .. import ast, Name, grammar, Param, Decl
 
@@ -266,3 +268,11 @@ class TestParser(TestCase):
         self.assertEqual("T", x.body.callee.implicit)
         assert isinstance(x.body.arg, ast.Ref)
         self.assertEqual("b", x.body.arg.name.text)
+
+    def test_parse_datatype(self):
+        parse(grammar.datatype, "inductive Foo open Foo")
+
+    def test_parse_datatype_failed(self):
+        with self.assertRaises(ParseException) as e:
+            parse(grammar.datatype, "inductive Foo open Bar")
+        self.assertTrue("open and datatype name mismatch" in str(e.exception))
