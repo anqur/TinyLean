@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from functools import reduce
+from typing import Optional, cast
 
-from . import Name, Param
+from . import Name, Param, Decl
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,15 @@ class Renamer:
         return Param(name, self.run(p.type), p.is_implicit)
 
 
-rename = lambda v: Renamer().run(v)
+_rn = lambda v: Renamer().run(v)
+
+
+def decl_type(d: Decl[IR]):
+    return _rn(reduce(lambda a, p: cast(IR, FnType(p, a)), reversed(d.params), d.ret))
+
+
+def decl_value(d: Decl[IR]):
+    return _rn(reduce(lambda a, p: cast(IR, Fn(p, a)), reversed(d.params), d.body))
 
 
 @dataclass
@@ -111,7 +120,7 @@ class Inliner:
         match v:
             case Ref(n):
                 if n.id in self.env:
-                    return self.run(rename(self.env[n.id]))
+                    return self.run(_rn(self.env[n.id]))
                 return v
             case Call(f, x):
                 f = self.run(f)

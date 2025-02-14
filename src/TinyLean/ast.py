@@ -248,7 +248,7 @@ class TypeChecker:
                     return ir.Ref(v), self.locals[v.id].type
                 if v.id in self.globals:
                     d = self.globals[v.id]
-                    return ir.rename(d.to_value(ir.Fn)), ir.rename(d.to_type(ir.FnType))
+                    return ir.decl_value(d), ir.decl_type(d)
                 raise AssertionError(v)  # pragma: no cover
             case FnType(_, p, b):
                 p_typ = self.check(p.type, ir.Type())

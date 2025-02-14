@@ -1,6 +1,4 @@
 from dataclasses import dataclass, field
-from functools import reduce
-from typing import Type
 
 
 _NEXT_ID = 0
@@ -42,9 +40,3 @@ class Decl[T]:
     params: list[Param[T]]
     ret: T
     body: T
-
-    def to_type(self, fn_type: Type):
-        return reduce(lambda a, p: fn_type(p, a), reversed(self.params), self.ret)
-
-    def to_value(self, fn: Type):
-        return reduce(lambda a, p: fn(p, a), reversed(self.params), self.body)
