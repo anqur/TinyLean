@@ -74,29 +74,29 @@ def _call_placeholder(f: Node):
     return Call(f.loc, f, Placeholder(f.loc, False), True)
 
 
-_g.name.set_parse_action(lambda r: Name(r[0][0]))
-_g.type_.set_parse_action(lambda l, r: Type(l))
-_g.ph.set_parse_action(lambda l, r: Placeholder(l, True))
-_g.ref.set_parse_action(lambda l, r: Ref(l, r[0][0]))
-_g.i_param.set_parse_action(lambda r: Param(r[0], r[1], True))
-_g.e_param.set_parse_action(lambda r: Param(r[0], r[1], False))
-_g.fn_type.set_parse_action(lambda l, r: FnType(l, r[0], r[1]))
-_g.fn.set_parse_action(
+_g.name.add_parse_action(lambda r: Name(r[0][0]))
+_g.type_.add_parse_action(lambda l, r: Type(l))
+_g.ph.add_parse_action(lambda l, r: Placeholder(l, True))
+_g.ref.add_parse_action(lambda l, r: Ref(l, r[0][0]))
+_g.i_param.add_parse_action(lambda r: Param(r[0], r[1], True))
+_g.e_param.add_parse_action(lambda r: Param(r[0], r[1], False))
+_g.fn_type.add_parse_action(lambda l, r: FnType(l, r[0], r[1]))
+_g.fn.add_parse_action(
     lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
 )
-_g.i_arg.set_parse_action(lambda l, r: (r[1], r[0]))
-_g.e_arg.set_parse_action(lambda l, r: (r[0], False))
-_g.call.set_parse_action(
+_g.i_arg.add_parse_action(lambda l, r: (r[1], r[0]))
+_g.e_arg.add_parse_action(lambda l, r: (r[0], False))
+_g.call.add_parse_action(
     lambda l, r: reduce(lambda a, b: Call(l, a, b[0], b[1]), r[1:], r[0])
 )
-_g.p_expr.set_parse_action(lambda r: r[0])
-_g.return_type.set_parse_action(lambda l, r: r[0] if len(r) else Placeholder(l, False))
-_g.definition.set_parse_action(
+_g.p_expr.add_parse_action(lambda r: r[0])
+_g.return_type.add_parse_action(lambda l, r: r[0] if len(r) else Placeholder(l, False))
+_g.definition.add_parse_action(
     lambda r: Def(r[0].loc, r[0].name, list(r[1]), r[2], r[3])
 )
-_g.example.set_parse_action(lambda l, r: Example(l, list(r[0]), r[1], r[2]))
-_g.guard.set_parse_action(lambda r: (r[0], r[1]))
-_g.ctor.set_parse_action(lambda r: Ctor(r[0].loc, r[0].name, list(r[1]), list(r[2])))
+_g.example.add_parse_action(lambda l, r: Example(l, list(r[0]), r[1], r[2]))
+_g.guard.add_parse_action(lambda r: (r[0], r[1]))
+_g.ctor.add_parse_action(lambda r: Ctor(r[0].loc, r[0].name, list(r[1]), list(r[2])))
 _g.data.add_condition(
     lambda r: r[0].name.text == r[3], message="open and datatype name mismatch"
 ).add_parse_action(lambda r: Data(r[0].loc, r[0].name, list(r[1]), list(r[2])))
