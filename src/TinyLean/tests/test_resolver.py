@@ -28,7 +28,7 @@ class TestNameResolver(TestCase):
             resolve_expr("fun a => b")
         n, loc = e.exception.args
         self.assertEqual(9, loc)
-        self.assertEqual("b", n.text)
+        self.assertEqual("b", n)
 
     def test_resolve_expr_function_type(self):
         x = resolve_expr("{a: Type} -> (b: Type) -> a")
@@ -43,7 +43,7 @@ class TestNameResolver(TestCase):
             resolve_expr("{a: Type} -> (b: Type) -> c")
         n, loc = e.exception.args
         self.assertEqual(26, loc)
-        self.assertEqual("c", n.text)
+        self.assertEqual("c", n)
 
     def test_resolve_program(self):
         resolve(
@@ -58,7 +58,7 @@ class TestNameResolver(TestCase):
             resolve("def f (a: Type) (b: c): Type := Type")
         n, loc = e.exception.args
         self.assertEqual(20, loc)
-        self.assertEqual("c", n.text)
+        self.assertEqual("c", n)
 
     def test_resolve_program_duplicate(self):
         with self.assertRaises(ast.DuplicateVariableError) as e:
@@ -70,7 +70,7 @@ class TestNameResolver(TestCase):
             )
         n, loc = e.exception.args
         self.assertEqual(58, loc)
-        self.assertEqual("f0", n.text)
+        self.assertEqual("f0", n)
 
     def test_resolve_expr_placeholder(self):
         resolve_expr("{a: Type} -> (b: Type) -> _")

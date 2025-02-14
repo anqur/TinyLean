@@ -115,26 +115,24 @@ class Inliner:
     env: dict[int, IR] = field(default_factory=dict)
 
     def run(self, v: IR) -> IR:
-        match v:
-            case Ref(n):
-                return self.run(_rn(self.env[n.id])) if n.id in self.env else v
-            case Call(f, x):
-                f = self.run(f)
-                x = self.run(x)
-                if isinstance(f, Fn):
-                    return self.run_with(f.param.name, x, f.body)
-                return Call(f, x)
-            case Fn(p, b):
-                return Fn(self._param(p), self.run(b))
-            case FnType(p, b):
-                return FnType(self._param(p), self.run(b))
-            case Type():
-                return v
-            case Placeholder(i) as ph:
-                h = self.holes[i]
-                h.answer.type = self.run(h.answer.type)
-                return ph if h.answer.is_unsolved() else self.run(h.answer.value)
-        raise AssertionError(v)  # pragma: no cover
+        if isinstance(v, Ref):
+            return self.run(_rn(self.env[v.name.id])) if v.name.id in self.env else v
+        if isinstance(v, Call):
+            f = self.run(v.callee)
+            x = self.run(v.arg)
+            if isinstance(f, Fn):
+                return self.run_with(f.param.name, x, f.body)
+            return Call(f, x)
+        if isinstance(v, Fn):
+            return Fn(self._param(v.param), self.run(v.body))
+        if isinstance(v, FnType):
+            return FnType(self._param(v.param), self.run(v.ret))
+        if isinstance(v, Placeholder):
+            h = self.holes[v.id]
+            h.answer.type = self.run(h.answer.type)
+            return v if h.answer.is_unsolved() else self.run(h.answer.value)
+        assert isinstance(v, Type)
+        return v
 
     def run_with(self, a_name: Name, a: IR, b: IR):
         self.env[a_name.id] = a

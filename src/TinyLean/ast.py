@@ -150,31 +150,28 @@ class NameResolver:
 
         if not d.name.is_unbound():
             if d.name.text in self.globals:
-                raise DuplicateVariableError(d.name, d.loc)
+                raise DuplicateVariableError(d.name.text, d.loc)
             self.globals[d.name.text] = d.name
 
         return Def(d.loc, d.name, params, ret, body)
 
-    def expr(self, node: Node) -> Node:
-        match node:
-            case Ref(loc, v):
-                if v.text in self.locals:
-                    return Ref(loc, self.locals[v.text])
-                if v.text in self.globals:
-                    return Ref(loc, self.globals[v.text])
-                raise UndefinedVariableError(v, loc)
-            case FnType(loc, p, body):
-                typ = self.expr(p.type)
-                b = self._guard_local(p.name, body)
-                return FnType(loc, Param(p.name, typ, p.is_implicit), b)
-            case Fn(loc, v, body):
-                b = self._guard_local(v, body)
-                return Fn(loc, v, b)
-            case Call(loc, f, x, i):
-                return Call(loc, self.expr(f), self.expr(x), i)
-            case Type() | Placeholder():
-                return node
-        raise AssertionError(node)  # pragma: no cover
+    def expr(self, n: Node) -> Node:
+        if isinstance(n, Ref):
+            if n.name.text in self.locals:
+                return Ref(n.loc, self.locals[n.name.text])
+            if n.name.text in self.globals:
+                return Ref(n.loc, self.globals[n.name.text])
+            raise UndefinedVariableError(n.name.text, n.loc)
+        if isinstance(n, FnType):
+            typ = self.expr(n.param.type)
+            b = self._guard_local(n.param.name, n.ret)
+            return FnType(n.loc, Param(n.param.name, typ, n.param.is_implicit), b)
+        if isinstance(n, Fn):
+            return Fn(n.loc, n.param, self._guard_local(n.param, n.body))
+        if isinstance(n, Call):
+            return Call(n.loc, self.expr(n.callee), self.expr(n.arg), n.implicit)
+        assert isinstance(n, Type) or isinstance(n, Placeholder)
+        return n
 
     def _guard_local(self, v: Name, node: Node):
         old = self._insert_local(v)
@@ -268,40 +265,36 @@ class TypeChecker:
         return val
 
     def infer(self, n: Node) -> tuple[ir.IR, ir.IR]:
-        match n:
-            case Ref(_, v):
-                if v.id in self.locals:
-                    return ir.Ref(v), self.locals[v.id].type
-                if v.id in self.globals:
-                    d = self.globals[v.id]
-                    return ir.def_value(d), ir.def_type(d)
-                raise AssertionError(v)  # pragma: no cover
-            case FnType(_, p, b):
-                p_typ = self.check(p.type, ir.Type())
-                inferred_p = Param(p.name, p_typ, p.is_implicit)
-                b_val = self._check_with(inferred_p, b, ir.Type())
-                return ir.FnType(inferred_p, b_val), ir.Type()
-            case Call(loc, f, x, i):
-                f_val, f_typ = self.infer(f)
+        if isinstance(n, Ref):
+            if n.name.id in self.locals:
+                return ir.Ref(n.name), self.locals[n.name.id].type
+            assert n.name.id in self.globals
+            d = self.globals[n.name.id]
+            return ir.def_value(d), ir.def_type(d)
+        if isinstance(n, FnType):
+            p_typ = self.check(n.param.type, ir.Type())
+            inferred_p = Param(n.param.name, p_typ, n.param.is_implicit)
+            b_val = self._check_with(inferred_p, n.ret, ir.Type())
+            return ir.FnType(inferred_p, b_val), ir.Type()
+        if isinstance(n, Call):
+            f_val, got = self.infer(n.callee)
 
-                if implicit_f := _with_placeholders(f, f_typ, i):
-                    return self.infer(Call(loc, implicit_f, x, i))
+            if implicit_f := _with_placeholders(n.callee, got, n.implicit):
+                return self.infer(Call(n.loc, implicit_f, n.arg, n.implicit))
 
-                match f_typ:
-                    case ir.FnType(p, b):
-                        x_tm = self._check_with(p, x, p.type)
-                        typ = self._inliner().run_with(p.name, x_tm, b)
-                        val = self._inliner().apply(f_val, x_tm)
-                        return val, typ
-                    case got:
-                        raise TypeMismatchError("function", str(got), f.loc)
-            case Type():
-                return ir.Type(), ir.Type()
-            case Placeholder(loc, is_user):
-                ty = self._insert_hole(loc, is_user, ir.Type())
-                v = self._insert_hole(loc, is_user, ty)
-                return v, ty
-        raise AssertionError(n)  # pragma: no cover
+            if not isinstance(got, ir.FnType):
+                raise TypeMismatchError("function", str(got), n.callee.loc)
+
+            x_tm = self._check_with(got.param, n.arg, got.param.type)
+            typ = self._inliner().run_with(got.param.name, x_tm, got.ret)
+            val = self._inliner().apply(f_val, x_tm)
+            return val, typ
+        if isinstance(n, Placeholder):
+            ty = self._insert_hole(n.loc, n.is_user, ir.Type())
+            v = self._insert_hole(n.loc, n.is_user, ty)
+            return v, ty
+        assert isinstance(n, Type)
+        return ir.Type(), ir.Type()
 
     def _inliner(self):
         return ir.Inliner(self.holes)
