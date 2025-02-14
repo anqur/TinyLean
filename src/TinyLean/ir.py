@@ -62,20 +62,18 @@ class Renamer:
     locals: dict[int, int] = field(default_factory=dict)
 
     def run(self, v: IR) -> IR:
-        match v:
-            case Ref(n):
-                if n.id in self.locals:
-                    return Ref(Name(n.text, self.locals[n.id]))
-                return v
-            case Call(f, x):
-                return Call(self.run(f), self.run(x))
-            case Fn(p, b):
-                return Fn(self._param(p), self.run(b))
-            case FnType(p, b):
-                return FnType(self._param(p), self.run(b))
-            case Type() | Placeholder():
-                return v
-        raise AssertionError(v)  # pragma: no cover
+        if isinstance(v, Ref):
+            if v.name.id in self.locals:
+                return Ref(Name(v.name.text, self.locals[v.name.id]))
+            return v
+        if isinstance(v, Call):
+            return Call(self.run(v.callee), self.run(v.arg))
+        if isinstance(v, Fn):
+            return Fn(self._param(v.param), self.run(v.body))
+        if isinstance(v, FnType):
+            return FnType(self._param(v.param), self.run(v.ret))
+        assert isinstance(v, Type) or isinstance(v, Placeholder)
+        return v
 
     def _param(self, p: Param[IR]):
         name = Name(p.name.text)
@@ -119,17 +117,13 @@ class Inliner:
     def run(self, v: IR) -> IR:
         match v:
             case Ref(n):
-                if n.id in self.env:
-                    return self.run(_rn(self.env[n.id]))
-                return v
+                return self.run(_rn(self.env[n.id])) if n.id in self.env else v
             case Call(f, x):
                 f = self.run(f)
                 x = self.run(x)
-                match f:
-                    case Fn(p, b):
-                        return self.run_with(p.name, x, b)
-                    case _:
-                        return Call(f, x)
+                if isinstance(f, Fn):
+                    return self.run_with(f.param.name, x, f.body)
+                return Call(f, x)
             case Fn(p, b):
                 return Fn(self._param(p), self.run(b))
             case FnType(p, b):
@@ -139,9 +133,7 @@ class Inliner:
             case Placeholder(i) as ph:
                 h = self.holes[i]
                 h.answer.type = self.run(h.answer.type)
-                if h.answer.is_unsolved():
-                    return ph
-                return self.run(h.answer.value)
+                return ph if h.answer.is_unsolved() else self.run(h.answer.value)
         raise AssertionError(v)  # pragma: no cover
 
     def run_with(self, a_name: Name, a: IR, b: IR):
@@ -151,11 +143,10 @@ class Inliner:
     def apply(self, f: IR, *args: IR):
         ret = f
         for x in args:
-            match ret:
-                case Fn(p, b):
-                    ret = self.run_with(p.name, x, b)
-                case _:
-                    ret = Call(ret, x)
+            if isinstance(ret, Fn):
+                ret = self.run_with(ret.param.name, x, ret.body)
+            else:
+                ret = Call(ret, x)
         return ret
 
     def _param(self, p: Param[IR]):
@@ -198,4 +189,5 @@ class Converter:
             for param in h.locals.values():
                 if param.name.id == answer.name.id:
                     assert self.eq(param.type, h.answer.type)  # FIXME: will fail here?
+
         return True
