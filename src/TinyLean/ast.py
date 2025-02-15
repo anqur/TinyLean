@@ -172,10 +172,8 @@ class NameResolver:
 
     def expr(self, n: Node) -> Node:
         if isinstance(n, Ref):
-            if n.name.text in self.locals:
-                return Ref(n.loc, self.locals[n.name.text])
-            if n.name.text in self.globals:
-                return Ref(n.loc, self.globals[n.name.text])
+            if v := self.locals.get(n.name.text, self.globals.get(n.name.text)):
+                return Ref(n.loc, v)
             raise UndefinedVariableError(n.name.text, n.loc)
         if isinstance(n, FnType):
             typ = self.expr(n.param.type)
@@ -200,18 +198,15 @@ class NameResolver:
     def _insert_local(self, v: Name):
         if v.is_unbound():
             return None
-        old = None
-        if v.text in self.locals:
-            old = self.locals[v.text]
+        old = self.locals.get(v.text)
         self.locals[v.text] = v
         return old
 
     def _insert_global(self, loc: int, name: Name):
-        if name.is_unbound():
-            return
-        if name.text in self.globals:
-            raise DuplicateVariableError(name.text, loc)
-        self.globals[name.text] = name
+        if not name.is_unbound():
+            if name.text in self.globals:
+                raise DuplicateVariableError(name.text, loc)
+            self.globals[name.text] = name
 
 
 class TypeMismatchError(Exception): ...
@@ -288,8 +283,8 @@ class TypeChecker:
 
     def infer(self, n: Node) -> tuple[ir.IR, ir.IR]:
         if isinstance(n, Ref):
-            if n.name.id in self.locals:
-                return ir.Ref(n.name), self.locals[n.name.id].type
+            if param := self.locals.get(n.name.id):
+                return ir.Ref(param.name), param.type
             assert n.name.id in self.globals
             d = self.globals[n.name.id]
             return ir.def_value(d), ir.def_type(d)
