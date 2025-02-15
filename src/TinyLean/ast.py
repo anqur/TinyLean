@@ -220,7 +220,7 @@ class UndefinedImplicitParam(Exception): ...
 
 @dataclass(frozen=True)
 class TypeChecker:
-    globals: dict[int, Def[ir.IR]] = field(default_factory=dict)
+    globals: dict[int, tuple[ir.IR, ir.IR]] = field(default_factory=dict)
     locals: dict[int, Param[ir.IR]] = field(default_factory=dict)
     holes: dict[int, ir.Hole] = field(default_factory=dict)
 
@@ -248,9 +248,9 @@ class TypeChecker:
         if isinstance(d, Example):
             return Example(d.loc, params, ret, body)
 
-        checked = Def(d.loc, d.name, params, ret, body)
-        self.globals[d.name.id] = checked
-        return checked
+        ret = Def(d.loc, d.name, params, ret, body)
+        self.globals[d.name.id] = (ir.def_value(ret), ir.def_type(ret))
+        return ret
 
     def _data(self, d: Data):  # pragma: no cover
         params = self._params(d.params)
@@ -295,8 +295,8 @@ class TypeChecker:
             if param := self.locals.get(n.name.id):
                 return ir.Ref(param.name), param.type
             assert n.name.id in self.globals
-            d = self.globals[n.name.id]
-            return ir.def_value(d), ir.def_type(d)
+            v, ty = self.globals[n.name.id]
+            return ir.rename(v), ir.rename(ty)
         if isinstance(n, FnType):
             p_typ = self.check(n.param.type, ir.Type())
             inferred_p = Param(n.param.name, p_typ, n.param.is_implicit)

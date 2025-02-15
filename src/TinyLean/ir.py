@@ -81,15 +81,15 @@ class Renamer:
         return Param(name, self.run(p.type), p.is_implicit)
 
 
-_rn = lambda v: Renamer().run(v)
+rename = lambda v: Renamer().run(v)
 
 
 def def_type(d: Def[IR]):
-    return _rn(reduce(lambda a, p: cast(IR, FnType(p, a)), reversed(d.params), d.ret))
+    return reduce(lambda a, p: cast(IR, FnType(p, a)), reversed(d.params), d.ret)
 
 
 def def_value(d: Def[IR]):
-    return _rn(reduce(lambda a, p: cast(IR, Fn(p, a)), reversed(d.params), d.body))
+    return reduce(lambda a, p: cast(IR, Fn(p, a)), reversed(d.params), d.body)
 
 
 @dataclass
@@ -116,7 +116,7 @@ class Inliner:
 
     def run(self, v: IR) -> IR:
         if isinstance(v, Ref):
-            return self.run(_rn(self.env[v.name.id])) if v.name.id in self.env else v
+            return self.run(rename(self.env[v.name.id])) if v.name.id in self.env else v
         if isinstance(v, Call):
             f = self.run(v.callee)
             x = self.run(v.arg)
