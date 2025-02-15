@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from functools import reduce
-from typing import Optional, cast
+from functools import reduce as _r
+from typing import Optional, cast as _c
 
-from . import Name, Param, Def
+from . import Name, Param, Def, Data as DataDecl
 
 
 @dataclass(frozen=True)
@@ -58,6 +58,27 @@ class Placeholder(IR):
 
 
 @dataclass(frozen=True)
+class Data(IR):  # pragma: no cover
+    name: Name
+    args: dict[int, IR]
+
+    def __str__(self):
+        return " ".join(str(x) for x in [self.name, *self.args.values()])
+
+
+@dataclass(frozen=True)
+class Ctor(IR):  # pragma: no cover
+    name: Name
+    args: dict[int, IR]
+    guards: list[tuple[IR, IR]]
+
+    def __str__(self):
+        a = " ".join(str(x) for x in self.args.values())
+        g = " ".join(f"({n} := {t})" for n, t in self.guards)
+        return " ".join([str(self.name), a, g])
+
+
+@dataclass(frozen=True)
 class Renamer:
     locals: dict[int, int] = field(default_factory=dict)
 
@@ -81,15 +102,23 @@ class Renamer:
         return Param(name, self.run(p.type), p.is_implicit)
 
 
-rename = lambda v: Renamer().run(v)
+_rn = lambda v: Renamer().run(v)
 
 
-def def_type(d: Def[IR]):
-    return reduce(lambda a, p: cast(IR, FnType(p, a)), reversed(d.params), d.ret)
+def _to(p: list[Param[IR]], v: IR, t=False):
+    return _rn(_r(lambda a, q: _c(IR, FnType(q, a) if t else Fn(q, a)), reversed(p), v))
 
 
-def def_value(d: Def[IR]):
-    return reduce(lambda a, p: cast(IR, Fn(p, a)), reversed(d.params), d.body)
+def from_def(d: Def[IR]):
+    return _to(d.params, d.body), _to(d.params, d.ret, True)
+
+
+def from_data(d: DataDecl[IR]):  # pragma: no cover
+    args = {p.name.id: Ref(p.name) for p in d.params}
+    return _to(d.params, Data(d.name, args)), _to(d.params, Type(), True)
+
+
+# TODO: ctor_global, which is hard.
 
 
 @dataclass
@@ -116,7 +145,7 @@ class Inliner:
 
     def run(self, v: IR) -> IR:
         if isinstance(v, Ref):
-            return self.run(rename(self.env[v.name.id])) if v.name.id in self.env else v
+            return self.run(_rn(self.env[v.name.id])) if v.name.id in self.env else v
         if isinstance(v, Call):
             f = self.run(v.callee)
             x = self.run(v.arg)
