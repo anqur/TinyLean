@@ -51,7 +51,7 @@ class Example[T](Decl):
 class Ctor[T](Decl):
     name: Name
     params: list[Param[T]]
-    guards: list[tuple[Name, T]]
+    guards: list[tuple[T, T]]
 
 
 @dataclass(frozen=True)

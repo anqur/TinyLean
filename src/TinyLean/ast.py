@@ -127,33 +127,48 @@ class NameResolver:
         return [self._decl(d) for d in decls]
 
     def _decl(self, decl: Decl):
-        # TODO
-        # if isinstance(decl, Def) or isinstance(decl, Example):
-        #     return self._def_or_example(decl)
-        # assert isinstance(decl, Data)
-        # return self._data(decl)
-        assert isinstance(decl, Def) or isinstance(decl, Example)
-        return self._def_or_example(decl)
-
-    def _def_or_example(self, d: Def[Node] | Example[Node]):
         self.locals.clear()
 
-        params = []
-        for p in d.params:
-            self._insert_local(p.name)
-            params.append(Param(p.name, self.expr(p.type), p.is_implicit))
+        if isinstance(decl, Def) or isinstance(decl, Example):
+            return self._def_or_example(decl)
+
+        assert isinstance(decl, Data)
+        return self._data(decl)
+
+    def _def_or_example(self, d: Def[Node] | Example[Node]):
+        params = self._params(d.params)
         ret = self.expr(d.ret)
         body = self.expr(d.body)
+
+        assert len(self.locals) == len(params)
 
         if isinstance(d, Example):
             return Example(d.loc, params, ret, body)
 
-        if not d.name.is_unbound():
-            if d.name.text in self.globals:
-                raise DuplicateVariableError(d.name.text, d.loc)
-            self.globals[d.name.text] = d.name
-
+        self._insert_global(d.loc, d.name)
         return Def(d.loc, d.name, params, ret, body)
+
+    def _ctor(self, c: Ctor[Node]):
+        params = self._params(c.params)
+        guards = [(self.expr(n), self.expr(t)) for n, t in c.guards]
+        for p in params:
+            del self.locals[p.name.text]
+        self._insert_global(c.loc, c.name)
+        return Ctor(c.loc, c.name, params, guards)
+
+    def _data(self, d: Data[Node]):
+        self._insert_global(d.loc, d.name)
+        params = self._params(d.params)
+        ctors = [self._ctor(c) for c in d.ctors]
+        assert len(self.locals) == len(params)
+        return Data(d.loc, d.name, params, ctors)
+
+    def _params(self, params: list[Param[Node]]):
+        ret = []
+        for p in params:
+            self._insert_local(p.name)
+            ret.append(Param(p.name, self.expr(p.type), p.is_implicit))
+        return ret
 
     def expr(self, n: Node) -> Node:
         if isinstance(n, Ref):
@@ -190,6 +205,13 @@ class NameResolver:
             old = self.locals[v.text]
         self.locals[v.text] = v
         return old
+
+    def _insert_global(self, loc: int, name: Name):
+        if name.is_unbound():
+            return
+        if name.text in self.globals:
+            raise DuplicateVariableError(name.text, loc)
+        self.globals[name.text] = name
 
 
 class TypeMismatchError(Exception): ...

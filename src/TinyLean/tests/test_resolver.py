@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from . import resolve_expr, resolve
-from .. import ast
+from .. import ast, Data
 
 
 class TestNameResolver(TestCase):
@@ -74,3 +74,53 @@ class TestNameResolver(TestCase):
 
     def test_resolve_expr_placeholder(self):
         resolve_expr("{a: Type} -> (b: Type) -> _")
+
+    def test_resolve_datatype_empty(self):
+        resolve("inductive Void where open Void")
+
+    def test_resolve_datatype_nat(self):
+        x = resolve(
+            """
+            inductive N where
+            | Z
+            | S (n: N)
+            open N
+            """
+        )[0]
+        assert isinstance(x, Data)
+        a = x.name.id
+        b_typ = x.ctors[1].params[0].type
+        assert isinstance(b_typ, ast.Ref)
+        b = b_typ.name.id
+        self.assertEqual(a, b)
+
+    def test_resolve_datatype_maybe(self):
+        x = resolve(
+            """
+            inductive Maybe (A: Type) where
+            | Nothing
+            | Just (a: A)
+            open Maybe
+            """
+        )[0]
+        assert isinstance(x, Data)
+        a = x.params[0].name.id
+        b_typ = x.ctors[1].params[0].type
+        assert isinstance(b_typ, ast.Ref)
+        b = b_typ.name.id
+        self.assertEqual(a, b)
+
+    def test_resolve_datatype_vec(self):
+        nat, vec = resolve(
+            """
+            inductive N where
+            | Z
+            | S (n: N)
+            open N
+
+            inductive Vec (A : Type) (n : N) where
+            | Nil (n := Z)
+            | Cons {m: N} (a: A) (v: Vec A m) (n := S m)
+            open Vec
+            """
+        )

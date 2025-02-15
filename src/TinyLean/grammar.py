@@ -40,7 +40,7 @@ return_type = Opt(COLON + expr)
 params = Group(ZeroOrMore(i_param | e_param))
 definition = (DEF + ref + params + return_type + ASSIGN + expr).set_name("definition")
 example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
-guard = (LPAREN + name + ASSIGN + expr + RPAREN).set_name("guard")
+guard = (LPAREN + ref + ASSIGN + expr + RPAREN).set_name("guard")
 ctor = (
     BAR + ref + Group(ZeroOrMore(i_param | e_param)) + Group(ZeroOrMore(guard))
 ).set_name("constructor")
