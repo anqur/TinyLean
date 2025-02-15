@@ -148,6 +148,13 @@ class NameResolver:
         self._insert_global(d.loc, d.name)
         return Def(d.loc, d.name, params, ret, body)
 
+    def _data(self, d: Data[Node]):
+        self._insert_global(d.loc, d.name)
+        params = self._params(d.params)
+        ctors = [self._ctor(c) for c in d.ctors]
+        assert len(self.locals) == len(params)
+        return Data(d.loc, d.name, params, ctors)
+
     def _ctor(self, c: Ctor[Node]):
         params = self._params(c.params)
         guards = [(self.expr(n), self.expr(t)) for n, t in c.guards]
@@ -155,13 +162,6 @@ class NameResolver:
             del self.locals[p.name.text]
         self._insert_global(c.loc, c.name)
         return Ctor(c.loc, c.name, params, guards)
-
-    def _data(self, d: Data[Node]):
-        self._insert_global(d.loc, d.name)
-        params = self._params(d.params)
-        ctors = [self._ctor(c) for c in d.ctors]
-        assert len(self.locals) == len(params)
-        return Data(d.loc, d.name, params, ctors)
 
     def _params(self, params: list[Param[Node]]):
         ret = []
@@ -233,18 +233,15 @@ class TypeChecker:
                 raise UnsolvedPlaceholderError(str(p), h.locals, ty, h.loc)
         return ret
 
-    def _run(self, decl: Decl):
-        assert isinstance(decl, Def) or isinstance(decl, Example)
-        return self._def_or_example(decl)
+    def _run(self, decl: Decl) -> Decl:
+        self.locals.clear()
+        if isinstance(decl, Def) or isinstance(decl, Example):
+            return self._def_or_example(decl)
+        assert isinstance(decl, Data)  # pragma: no cover
+        return self._data(decl)  # pragma: no cover
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
-        self.locals.clear()
-
-        params = []
-        for p in d.params:
-            param = Param(p.name, self.check(p.type, ir.Type()), p.is_implicit)
-            self.locals[p.name.id] = param
-            params.append(param)
+        params = self._params(d.params)
         ret = self.check(d.ret, ir.Type())
         body = self.check(d.body, ret)
 
@@ -254,6 +251,18 @@ class TypeChecker:
         checked = Def(d.loc, d.name, params, ret, body)
         self.globals[d.name.id] = checked
         return checked
+
+    def _data(self, d: Data):  # pragma: no cover
+        params = self._params(d.params)
+        raise AssertionError  # TODO
+
+    def _params(self, params: list[Param[Node]]):
+        ret = []
+        for p in params:
+            param = Param(p.name, self.check(p.type, ir.Type()), p.is_implicit)
+            self.locals[p.name.id] = param
+            ret.append(param)
+        return ret
 
     def check(self, n: Node, typ: ir.IR) -> ir.IR:
         if isinstance(n, Fn):
