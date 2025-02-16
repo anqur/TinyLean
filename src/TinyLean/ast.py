@@ -151,17 +151,17 @@ class NameResolver:
     def _data(self, d: Data[Node]):
         self._insert_global(d.loc, d.name)
         params = self._params(d.params)
-        ctors = [self._ctor(c) for c in d.ctors]
+        ctors = [self._ctor(c, d.name) for c in d.ctors]
         assert len(self.locals) == len(params)
         return Data(d.loc, d.name, params, ctors)
 
-    def _ctor(self, c: Ctor[Node]):
+    def _ctor(self, c: Ctor[Node], ty_name: Name):
         params = self._params(c.params)
-        guards = [(self.expr(n), self.expr(t)) for n, t in c.guards]
+        ty_args = [(self.expr(n), self.expr(t)) for n, t in c.ty_args]
         for p in params:
             del self.locals[p.name.text]
         self._insert_global(c.loc, c.name)
-        return Ctor(c.loc, c.name, params, guards)
+        return Ctor(c.loc, c.name, params, ty_args, ty_name)
 
     def _params(self, params: list[Param[Node]]):
         ret = []
@@ -237,8 +237,8 @@ class TypeChecker:
         self.locals.clear()
         if isinstance(decl, Def) or isinstance(decl, Example):
             return self._def_or_example(decl)
-        assert isinstance(decl, Data)  # pragma: no cover
-        return self._data(decl)  # pragma: no cover
+        assert isinstance(decl, Data)
+        return self._data(decl)
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         params = self._params(d.params)
@@ -252,9 +252,24 @@ class TypeChecker:
         self.globals[d.name.id] = ret
         return ret
 
-    def _data(self, d: Data):  # pragma: no cover
+    def _data(self, d: Data[Node]):
         params = self._params(d.params)
-        raise AssertionError  # TODO
+        data = Data(d.loc, d.name, params, [])
+        self.globals[d.name.id] = data
+        data.ctors.extend(self._ctor(c) for c in d.ctors)
+        return data
+
+    def _ctor(self, c: Ctor[Node]):
+        params = self._params(c.params)
+        ty_args: list[tuple[ir.IR, ir.IR]] = []
+        for x, v in c.ty_args:
+            x_val, x_ty = self.infer(x)
+            v_val = self.check(v, x_ty)
+            assert isinstance(x_val, ir.Ref)
+            ty_args.append((x_val, v_val))
+        ctor = Ctor(c.loc, c.name, params, ty_args, c.ty_name)
+        self.globals[c.name.id] = ctor
+        return ctor
 
     def _params(self, params: list[Param[Node]]):
         ret = []
@@ -296,8 +311,14 @@ class TypeChecker:
                 return ir.Ref(param.name), param.type
             assert n.name.id in self.globals
             d = self.globals[n.name.id]
-            assert isinstance(d, Def)  # TODO: can be Data or Ctor
-            return ir.from_def(d)
+            if isinstance(d, Def):
+                return ir.from_def(d)
+            if isinstance(d, Data):
+                return ir.from_data(d)
+            assert isinstance(d, Ctor) and d.ty_name.id in self.globals
+            data_decl = self.globals[d.ty_name.id]
+            assert isinstance(data_decl, Data)
+            return ir.from_ctor(d, data_decl)
         if isinstance(n, FnType):
             p_typ = self.check(n.param.type, ir.Type())
             inferred_p = Param(n.param.name, p_typ, n.param.is_implicit)

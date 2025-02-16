@@ -51,7 +51,8 @@ class Example[T](Decl):
 class Ctor[T](Decl):
     name: Name
     params: list[Param[T]]
-    guards: list[tuple[T, T]]
+    ty_args: list[tuple[T, T]]
+    ty_name: Name | None = None
 
 
 @dataclass(frozen=True)

@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from . import resolve_expr
-from .. import ast, Name, Param, ir
+from .. import ast, Name, Param, ir, Data
 
 check_expr = lambda s, t: ast.TypeChecker().check(resolve_expr(s), t)
 infer_expr = lambda s: ast.TypeChecker().infer(resolve_expr(s))
@@ -165,3 +165,100 @@ class TestTypeChecker(TestCase):
         self.assertEqual(1, len(ctx))
         assert isinstance(ty, ir.Type)
         self.assertEqual(75, loc)
+
+    def test_check_program_datatype_nat(self):
+        x = ast.check_string(
+            """
+            inductive N where
+            | Z
+            | S (n: N)
+            open N
+            """
+        )[0]
+        assert isinstance(x, Data)
+        self.assertEqual(2, len(x.ctors))
+
+        n_v, n_ty = ir.from_data(x)
+        self.assertEqual("N", str(n_v))
+        self.assertEqual("Type", str(n_ty))
+
+        z_v, z_ty = ir.from_ctor(x.ctors[0], x)
+        self.assertEqual("N.Z", str(z_v))
+        self.assertEqual("N", str(z_ty))
+
+        s_v, s_ty = ir.from_ctor(x.ctors[1], x)
+        self.assertEqual("λ (n: N) ↦ (N.S n)", str(s_v))
+        self.assertEqual("(n: N) → N", str(s_ty))
+
+    def test_check_program_datatype_maybe(self):
+        x = ast.check_string(
+            """
+            inductive Maybe (A: Type) where
+            | Nothing
+            | Just (a: A)
+            open Maybe
+            """
+        )[0]
+        assert isinstance(x, Data)
+        self.assertEqual(2, len(x.ctors))
+
+        maybe_v, maybe_ty = ir.from_data(x)
+        self.assertEqual("λ (A: Type) ↦ (Maybe A)", str(maybe_v))
+        self.assertEqual("(A: Type) → Type", str(maybe_ty))
+
+        nothing_v, nothing_ty = ir.from_ctor(x.ctors[0], x)
+        self.assertEqual("λ {A: Type} ↦ Maybe.Nothing", str(nothing_v))
+        self.assertEqual("{A: Type} → (Maybe A)", str(nothing_ty))
+
+        just_v, just_ty = ir.from_ctor(x.ctors[1], x)
+        self.assertEqual("λ {A: Type} ↦ λ (a: A) ↦ (Maybe.Just a)", str(just_v))
+        self.assertEqual("{A: Type} → (a: A) → (Maybe A)", str(just_ty))
+
+        assert isinstance(just_v, ir.Fn)
+        assert isinstance(just_v.body, ir.Fn)
+        assert isinstance(just_v.body.body, ir.Ctor)
+        just_arg = [*just_v.body.body.args.values()][0]
+        assert isinstance(just_arg, ir.Ref)
+        self.assertEqual(just_v.body.param.name.id, just_arg.name.id)
+
+        assert isinstance(just_ty, ir.FnType)
+        assert isinstance(just_ty.ret, ir.FnType)
+        assert isinstance(just_ty.ret.ret, ir.Data)
+        just_ty_arg = [*just_ty.ret.ret.args.values()][0]
+        assert isinstance(just_ty_arg, ir.Ref)
+        self.assertEqual(just_ty.param.name.id, just_ty_arg.name.id)
+
+    def test_check_program_datatype_vec(self):
+        _, x = ast.check_string(
+            """
+            inductive N where
+            | Z
+            | S (n: N)
+            open N
+
+            inductive Vec (A: Type) (n: N) where
+            | Nil (n := Z)
+            | Cons {m: N} (a: A) (v: Vec A m) (n := S m)
+            open Vec
+            """
+        )
+        assert isinstance(x, Data)
+        self.assertEqual(2, len(x.ctors))
+
+        vec_v, vec_ty = ir.from_data(x)
+        self.assertEqual("λ (A: Type) ↦ λ (n: N) ↦ (Vec A n)", str(vec_v))
+        self.assertEqual("(A: Type) → (n: N) → Type", str(vec_ty))
+
+        nil_v, nil_ty = ir.from_ctor(x.ctors[0], x)
+        self.assertEqual("λ {A: Type} ↦ Vec.Nil", str(nil_v))
+        self.assertEqual("{A: Type} → (Vec A N.Z)", str(nil_ty))
+
+        cons_v, cons_ty = ir.from_ctor(x.ctors[1], x)
+        self.assertEqual(
+            "λ {A: Type} ↦ λ {m: N} ↦ λ (a: A) ↦ λ (v: (Vec A m)) ↦ (Vec.Cons m a v)",
+            str(cons_v),
+        )
+        self.assertEqual(
+            "{A: Type} → {m: N} → (a: A) → (v: (Vec A m)) → (Vec A (N.S m))",
+            str(cons_ty),
+        )
