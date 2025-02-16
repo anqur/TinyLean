@@ -95,7 +95,7 @@ _g.definition.add_parse_action(
     lambda r: Def(r[0].loc, r[0].name, list(r[1]), r[2], r[3])
 )
 _g.example.add_parse_action(lambda l, r: Example(l, list(r[0]), r[1], r[2]))
-_g.guard.add_parse_action(lambda r: (r[0], r[1]))
+_g.type_arg.add_parse_action(lambda r: (r[0], r[1]))
 _g.ctor.add_parse_action(lambda r: Ctor(r[0].loc, r[0].name, list(r[1]), list(r[2])))
 _g.data.add_condition(
     lambda r: r[0].name.text == r[3], message="open and datatype name mismatch"
@@ -220,7 +220,7 @@ class UndefinedImplicitParam(Exception): ...
 
 @dataclass(frozen=True)
 class TypeChecker:
-    globals: dict[int, Def[ir.IR]] = field(default_factory=dict)
+    globals: dict[int, Decl] = field(default_factory=dict)
     locals: dict[int, Param[ir.IR]] = field(default_factory=dict)
     holes: dict[int, ir.Hole] = field(default_factory=dict)
 
@@ -295,7 +295,9 @@ class TypeChecker:
             if param := self.locals.get(n.name.id):
                 return ir.Ref(param.name), param.type
             assert n.name.id in self.globals
-            return ir.from_def(self.globals[n.name.id])
+            d = self.globals[n.name.id]
+            assert isinstance(d, Def)  # TODO: can be Data or Ctor
+            return ir.from_def(d)
         if isinstance(n, FnType):
             p_typ = self.check(n.param.type, ir.Type())
             inferred_p = Param(n.param.name, p_typ, n.param.is_implicit)

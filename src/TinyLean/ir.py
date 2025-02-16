@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import reduce as _r
 from typing import Optional, cast as _c
 
-from . import Name, Param, Def, Data as DataDecl
+from . import Name, Param, Def, Data as DataDecl, Ctor as CtorDecl
 
 
 @dataclass(frozen=True)
@@ -70,12 +70,12 @@ class Data(IR):  # pragma: no cover
 class Ctor(IR):  # pragma: no cover
     name: Name
     args: dict[int, IR]
-    guards: list[tuple[IR, IR]]
+    ty_args: list[tuple[IR, IR]]
 
     def __str__(self):
-        a = " ".join(str(x) for x in self.args.values())
-        g = " ".join(f"({n} := {t})" for n, t in self.guards)
-        return " ".join([str(self.name), a, g])
+        xs = " ".join(str(x) for x in self.args.values())
+        ys = " ".join(f"({n} := {t})" for n, t in self.ty_args)
+        return " ".join([str(self.name), xs, ys])
 
 
 @dataclass(frozen=True)
@@ -118,7 +118,9 @@ def from_data(d: DataDecl[IR]):  # pragma: no cover
     return _to(d.params, Data(d.name, args)), _to(d.params, Type(), True)
 
 
-# TODO: ctor_global, which is hard.
+def from_ctor(c: CtorDecl[IR], d: DataDecl[IR]):  # pragma: no cover
+    # TODO
+    pass
 
 
 @dataclass

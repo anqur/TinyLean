@@ -40,9 +40,9 @@ return_type = Opt(COLON + expr)
 params = Group(ZeroOrMore(i_param | e_param))
 definition = (DEF + ref + params + return_type + ASSIGN + expr).set_name("definition")
 example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
-guard = (LPAREN + ref + ASSIGN + expr + RPAREN).set_name("guard")
+type_arg = (LPAREN + ref + ASSIGN + expr + RPAREN).set_name("type_arg")
 ctor = (
-    BAR + ref + Group(ZeroOrMore(i_param | e_param)) + Group(ZeroOrMore(guard))
+    BAR + ref + Group(ZeroOrMore(i_param | e_param)) + Group(ZeroOrMore(type_arg))
 ).set_name("constructor")
 data = (
     INDUCTIVE + ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT
