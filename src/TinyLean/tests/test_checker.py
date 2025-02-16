@@ -255,7 +255,7 @@ class TestTypeChecker(TestCase):
         assert isinstance(just_ty_arg, ir.Ref)
         self.assertEqual(just_ty.param.name.id, just_ty_arg.name.id)
 
-    def test_check_program_datatype_maybe_failed(self):
+    def test_check_program_datatype_maybe_unsolved(self):
         with self.assertRaises(ast.UnsolvedPlaceholderError) as e:
             ast.check_string(
                 """
@@ -272,6 +272,24 @@ class TestTypeChecker(TestCase):
         self.assertEqual(1, len(ctx))
         assert isinstance(ty, ir.Type)
         self.assertEqual(160, loc)
+
+    def test_check_program_datatype_maybe_failed(self):
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string(
+                """
+                inductive Maybe (A: Type) where
+                | Nothing
+                | Just (a: A)
+                open Maybe
+
+                inductive A where | AA open A
+                inductive B where | BB open B
+                example: Maybe B := Just AA
+                """
+            )
+        want, got, _ = e.exception.args
+        self.assertEqual("(Maybe B)", str(want))
+        self.assertEqual("(Maybe A)", str(got))
 
     def test_check_program_datatype_vec(self):
         _, x = ast.check_string(
