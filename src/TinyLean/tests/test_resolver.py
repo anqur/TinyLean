@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from . import resolve_expr, resolve
+from . import resolve_expr, resolve, resolve_md
 from .. import ast, Data
 
 
@@ -72,6 +72,25 @@ class TestNameResolver(TestCase):
         self.assertEqual(58, loc)
         self.assertEqual("f0", n)
 
+    def test_resolve_md(self):
+        resolve_md(
+            """\
+# Heading
+
+```lean
+def a := Type
+```
+
+Some text.
+
+```lean
+def b := a
+```
+
+Footer.
+            """
+        )
+
     def test_resolve_expr_placeholder(self):
         resolve_expr("{a: Type} -> (b: Type) -> _")
 
@@ -111,7 +130,7 @@ class TestNameResolver(TestCase):
         self.assertEqual(a, b)
 
     def test_resolve_datatype_vec(self):
-        nat, vec = resolve(
+        resolve(
             """
             inductive N where
             | Z
@@ -124,3 +143,10 @@ class TestNameResolver(TestCase):
             open Vec
             """
         )
+
+    def test_resolve_datatype_duplicate(self):
+        with self.assertRaises(ast.DuplicateVariableError) as e:
+            resolve("inductive A where | A open A")
+        name, loc = e.exception.args
+        self.assertEqual("A", name)
+        self.assertEqual(20, loc)

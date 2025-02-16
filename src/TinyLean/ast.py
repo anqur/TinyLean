@@ -126,7 +126,7 @@ class NameResolver:
     def __ror__(self, decls: list[Decl]):
         return [self._decl(d) for d in decls]
 
-    def _decl(self, decl: Decl):
+    def _decl(self, decl: Decl) -> Decl:
         self.locals.clear()
 
         if isinstance(decl, Def) or isinstance(decl, Example):
