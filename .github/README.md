@@ -17,6 +17,25 @@ def id {T: Type} (a: T): T := a
 example := id Type
 ```
 
+Inductive data types:
+
+```lean
+inductive Maybe (A: Type) where
+| Nothing
+| Just (a: A)
+open Maybe
+
+inductive N where
+| Z
+| S (n: N)
+open N
+
+inductive Vec (A: Type) (n: N) where
+| Nil (n := Z)
+| Cons {m: N} (a: A) (v: Vec A m) (n := S m)
+open Vec
+```
+
 ## License
 
 MIT

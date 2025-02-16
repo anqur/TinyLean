@@ -250,10 +250,10 @@ class Converter:
 
         return True
 
-    def _args(self, xs: dict[int, IR], ys: dict[int, IR]):  # pragma: no cover
-        # TODO: Testing.
+    def _args(self, xs: dict[int, IR], ys: dict[int, IR]):
         assert len(xs) == len(ys)
-        for i, a in xs.items():
+        for i, a in xs.items():  # pragma: no cover
+            # TODO: Testing.
             assert i in ys
             if not self.eq(a, ys[i]):
                 return False

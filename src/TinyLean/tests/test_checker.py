@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from . import resolve_expr
-from .. import ast, Name, Param, ir, Data
+from .. import ast, Name, Param, ir, Data, Example
 
 check_expr = lambda s, t: ast.TypeChecker().check(resolve_expr(s), t)
 infer_expr = lambda s: ast.TypeChecker().infer(resolve_expr(s))
@@ -167,14 +167,18 @@ class TestTypeChecker(TestCase):
         self.assertEqual(75, loc)
 
     def test_check_program_datatype_nat(self):
-        x = ast.check_string(
+        x, _, _, _2 = ast.check_string(
             """
             inductive N where
             | Z
             | S (n: N)
             open N
+
+            example: N := Z
+            example: N := S Z
+            example: N := S (S Z)
             """
-        )[0]
+        )
         assert isinstance(x, Data)
         self.assertEqual(2, len(x.ctors))
 
@@ -190,6 +194,26 @@ class TestTypeChecker(TestCase):
         self.assertEqual("λ (n: N) ↦ (N.S n)", str(s_v))
         self.assertEqual("(n: N) → N", str(s_ty))
 
+        assert isinstance(_2, Example)
+        self.assertEqual("(N.S (N.S N.Z))", str(_2.body))
+
+    def test_check_program_datatype_nat_failed(self):
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string(
+                """
+                inductive N where
+                | Z
+                | S (n: N)
+                open N
+
+                example: Type := Z
+                """
+            )
+        want, got, loc = e.exception.args
+        self.assertEqual("Type", str(want))
+        self.assertEqual("N", str(got))
+        self.assertEqual(139, loc)
+
     def test_check_program_datatype_maybe(self):
         x = ast.check_string(
             """
@@ -197,6 +221,9 @@ class TestTypeChecker(TestCase):
             | Nothing
             | Just (a: A)
             open Maybe
+
+            example: Maybe Type := Nothing
+            example: Maybe Type := Just Type
             """
         )[0]
         assert isinstance(x, Data)
@@ -227,6 +254,24 @@ class TestTypeChecker(TestCase):
         just_ty_arg = [*just_ty.ret.ret.args.values()][0]
         assert isinstance(just_ty_arg, ir.Ref)
         self.assertEqual(just_ty.param.name.id, just_ty_arg.name.id)
+
+    def test_check_program_datatype_maybe_failed(self):
+        with self.assertRaises(ast.UnsolvedPlaceholderError) as e:
+            ast.check_string(
+                """
+                inductive Maybe (A: Type) where
+                | Nothing
+                | Just (a: A)
+                open Maybe
+
+                example := Nothing
+                """
+            )
+        name, ctx, ty, loc = e.exception.args
+        self.assertTrue(name.startswith("?m"))
+        self.assertEqual(1, len(ctx))
+        assert isinstance(ty, ir.Type)
+        self.assertEqual(160, loc)
 
     def test_check_program_datatype_vec(self):
         _, x = ast.check_string(
