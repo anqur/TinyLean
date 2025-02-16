@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from functools import reduce as _r
-from typing import Optional, cast as _c
+from typing import Optional, cast as _c, OrderedDict
 
 from . import Name, Param, Def, Data as DataDecl, Ctor as CtorDecl
 
@@ -162,7 +162,7 @@ class Hole:
 
 @dataclass(frozen=True)
 class Inliner:
-    holes: dict[int, Hole]
+    holes: OrderedDict[int, Hole]
     env: dict[int, IR] = field(default_factory=dict)
 
     def run(self, v: IR) -> IR:
@@ -208,7 +208,7 @@ class Inliner:
 
 @dataclass(frozen=True)
 class Converter:
-    holes: dict[int, Hole]
+    holes: OrderedDict[int, Hole]
 
     def eq(self, lhs: IR, rhs: IR):
         match lhs, rhs:

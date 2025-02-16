@@ -292,7 +292,7 @@ class TestTypeChecker(TestCase):
         self.assertEqual("(Maybe A)", str(got))
 
     def test_check_program_datatype_vec(self):
-        _, x = ast.check_string(
+        x = ast.check_string(
             """
             inductive N where
             | Z
@@ -303,8 +303,11 @@ class TestTypeChecker(TestCase):
             | Nil (n := Z)
             | Cons {m: N} (a: A) (v: Vec A m) (n := S m)
             open Vec
+
+            /- This will emit some "dirty" placeholders. -/
+            def v1: Vec N (S Z) := Cons Z Nil
             """
-        )
+        )[1]
         assert isinstance(x, Data)
         self.assertEqual(2, len(x.ctors))
 

@@ -1,6 +1,7 @@
 from functools import reduce
 from itertools import chain
 from dataclasses import dataclass, field
+from typing import OrderedDict
 
 from . import Name, Param, Decl, ir, grammar as _g, fresh, Def, Example, Ctor, Data
 
@@ -222,7 +223,7 @@ class UndefinedImplicitParam(Exception): ...
 class TypeChecker:
     globals: dict[int, Decl] = field(default_factory=dict)
     locals: dict[int, Param[ir.IR]] = field(default_factory=dict)
-    holes: dict[int, ir.Hole] = field(default_factory=dict)
+    holes: OrderedDict[int, ir.Hole] = field(default_factory=OrderedDict)
 
     def __ror__(self, ds: list[Decl]):
         ret = [self._run(d) for d in ds]
@@ -325,9 +326,12 @@ class TypeChecker:
             b_val = self._check_with(inferred_p, n.ret, ir.Type())
             return ir.FnType(inferred_p, b_val), ir.Type()
         if isinstance(n, Call):
+            before = len(self.holes)
             f_val, got = self.infer(n.callee)
 
             if implicit_f := _with_placeholders(n.callee, got, n.implicit):
+                for _ in range(len(self.holes) - before):
+                    self.holes.popitem()
                 return self.infer(Call(n.loc, implicit_f, n.arg, n.implicit))
 
             if not isinstance(got, ir.FnType):
