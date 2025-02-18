@@ -289,6 +289,7 @@ class TypeChecker:
             param = Param(n.param, want.param.type, want.param.is_implicit)
             return ir.Fn(param, self._check_with(param, n.body, ret))
 
+        holes_len = len(self.holes)
         val, got = self.infer(n)
         got = self._inliner().run(got)
         want = self._inliner().run(typ)
@@ -299,6 +300,8 @@ class TypeChecker:
         # Change this to an actual check if we got any examples.
         assert not isinstance(want, ir.FnType) or not want.param.is_implicit
         if new_f := _with_placeholders(n, got, False):
+            # FIXME: No valid tests yet.
+            assert len(self.holes) == holes_len
             val, got = self.infer(new_f)
 
         if not ir.Converter(self.holes).eq(got, want):
@@ -326,11 +329,11 @@ class TypeChecker:
             b_val = self._check_with(inferred_p, n.ret, ir.Type())
             return ir.FnType(inferred_p, b_val), ir.Type()
         if isinstance(n, Call):
-            before = len(self.holes)
+            holes_len = len(self.holes)
             f_val, got = self.infer(n.callee)
 
             if implicit_f := _with_placeholders(n.callee, got, n.implicit):
-                for _ in range(len(self.holes) - before):
+                for _ in range(len(self.holes) - holes_len):
                     self.holes.popitem()
                 return self.infer(Call(n.loc, implicit_f, n.arg, n.implicit))
 
