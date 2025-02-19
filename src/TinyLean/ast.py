@@ -190,6 +190,8 @@ class NameResolver:
             return Fn(n.loc, n.param, self._guard_local(n.param, n.body))
         if isinstance(n, Call):
             return Call(n.loc, self.expr(n.callee), self.expr(n.arg), n.implicit)
+        if isinstance(n, Nomatch):
+            return Nomatch(n.loc, self.expr(n.arg))
         assert isinstance(n, Type) or isinstance(n, Placeholder)
         return n
 
@@ -319,14 +321,13 @@ class TypeChecker:
         if isinstance(n, Ref):
             if param := self.locals.get(n.name.id):
                 return ir.Ref(param.name), param.type
-            assert n.name.id in self.globals
-            d = self.globals[n.name.id]
+            d = self._get_global(n.name.id)
             if isinstance(d, Def):
                 return ir.from_def(d)
             if isinstance(d, Data):
                 return ir.from_data(d)
-            assert isinstance(d, Ctor) and d.ty_name.id in self.globals
-            data_decl = self.globals[d.ty_name.id]
+            assert isinstance(d, Ctor)
+            data_decl = self._get_global(d.ty_name.id)
             assert isinstance(data_decl, Data)
             return ir.from_ctor(d, data_decl)
         if isinstance(n, FnType):
@@ -354,11 +355,24 @@ class TypeChecker:
             ty = self._insert_hole(n.loc, n.is_user, ir.Type())
             v = self._insert_hole(n.loc, n.is_user, ty)
             return v, ty
+        if isinstance(n, Nomatch):
+            arg, arg_ty = self.infer(n.arg)
+            if not isinstance(arg_ty, ir.Data):
+                raise TypeMismatchError("datatype", str(arg_ty), n.arg.loc)
+            data = self._get_global(arg_ty.name.id)
+            assert isinstance(data, Data)
+            if len(data.ctors) > 0:
+                raise TypeMismatchError("empty datatype", str(arg_ty), n.arg.loc)
+            return ir.Nomatch(arg), self._insert_hole(n.loc, False, ir.Type())
         assert isinstance(n, Type)
         return ir.Type(), ir.Type()
 
     def _inliner(self):
         return ir.Inliner(self.holes)
+
+    def _get_global(self, i: int):
+        assert i in self.globals
+        return self.globals[i]
 
     def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
         self.locals[p.name.id] = p

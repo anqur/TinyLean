@@ -83,6 +83,15 @@ class Ctor(IR):
 
 
 @dataclass(frozen=True)
+class Nomatch(IR):
+    arg: IR
+
+    def __str__(self):  # pragma: no cover
+        # TODO: Testing.
+        return f"(nomatch {self.arg})"
+
+
+@dataclass(frozen=True)
 class Renamer:
     locals: dict[int, int] = field(default_factory=dict)
 
@@ -101,6 +110,8 @@ class Renamer:
             return Data(v.name, {i: self.run(v) for i, v in v.args.items()})
         if isinstance(v, Ctor):
             return Ctor(v.ty_name, v.name, {i: self.run(v) for i, v in v.args.items()})
+        if isinstance(v, Nomatch):
+            return Nomatch(self.run(v.arg))
         assert isinstance(v, Type) or isinstance(v, Placeholder)
         return v
 
@@ -186,6 +197,8 @@ class Inliner:
             return Ctor(v.ty_name, v.name, {i: self.run(v) for i, v in v.args.items()})
         if isinstance(v, Data):
             return Data(v.name, {i: self.run(v) for i, v in v.args.items()})
+        if isinstance(v, Nomatch):
+            return Nomatch(self.run(v.arg))
         assert isinstance(v, Type)
         return v
 
@@ -229,6 +242,9 @@ class Converter:
             case Ctor(t, x, xs), Ctor(u, y, ys):  # pragma: no cover
                 # TODO: Testing.
                 return t.id == u.id and x.id == y.id and self._args(xs, ys)
+            case Nomatch(x), Nomatch(y):  # pragma: no cover
+                # TODO: Testing.
+                return self.eq(x, y)
             case Type(), Type():
                 return True
 

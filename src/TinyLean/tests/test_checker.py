@@ -328,3 +328,39 @@ class TestTypeChecker(TestCase):
             "{A: Type} → {m: N} → (a: A) → (v: (Vec A m)) → (Vec A (N.S m))",
             str(cons_ty),
         )
+
+    def test_check_program_nomatch(self):
+        _, _, e = ast.check_string(
+            """
+            inductive Bottom where open Bottom
+            def elimBot {A: Type} (x: Bottom): A := nomatch x
+            example (x: Bottom): Type := elimBot x
+            """
+        )
+        assert isinstance(e, Example)
+        p = e.params[0].name.id
+        assert isinstance(e.body, ir.Nomatch)
+        assert isinstance(e.body.arg, ir.Ref)
+        a = e.body.arg.name.id
+        self.assertEqual(p, a)
+
+    def test_check_program_nomatch_non_data_failed(self):
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string("example := nomatch Type")
+        want, got, loc = e.exception.args
+        self.assertEqual("datatype", str(want))
+        self.assertEqual("Type", str(got))
+        self.assertEqual(19, loc)
+
+    def test_check_program_nomatch_non_empty_failed(self):
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string(
+                """
+                inductive A where | AA open A
+                example := nomatch AA
+                """
+            )
+        want, got, loc = e.exception.args
+        self.assertEqual("empty datatype", str(want))
+        self.assertEqual("A", str(got))
+        self.assertEqual(82, loc)
