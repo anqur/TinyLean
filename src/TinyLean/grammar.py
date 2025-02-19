@@ -4,8 +4,9 @@ COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 IDENT = unicode_set.identifier()
 
-DEF, EXAMPLE, INDUCTIVE, WHERE, OPEN, TYPE = map(
-    lambda w: Suppress(Keyword(w)), "def example inductive where open Type".split()
+DEF, EXAMPLE, INDUCTIVE, WHERE, OPEN, TYPE, NOMATCH = map(
+    lambda w: Suppress(Keyword(w)),
+    "def example inductive where open Type nomatch".split(),
 )
 
 ASSIGN, ARROW, FUN, TO = map(
@@ -13,22 +14,23 @@ ASSIGN, ARROW, FUN, TO = map(
 )
 
 LPAREN, RPAREN, LBRACE, RBRACE, COLON, UNDER, BAR = map(Suppress, "(){}:_|")
-inline_one_or_more = lambda e: OneOrMore(Opt(Suppress(White(" \t\r"))) + e)
+I_WHITE = Opt(Suppress(White(" \t\r"))).set_name("inline_whitespace")
 
-expr, fn_type, fn, call, i_arg, e_arg, p_expr, type_, ph, ref = map(
+expr, fn_type, fn, nomatch, call, i_arg, e_arg, p_expr, type_, ph, ref = map(
     lambda n: Forward().set_name(n),
-    "expr fn_type fn call implicit_arg explicit_arg paren_expr type placeholder ref".split(),
+    "expr fn_type fn nomatch call implicit_arg explicit_arg paren_expr type placeholder ref".split(),
 )
 
-expr <<= fn_type | fn | call | p_expr | type_ | ph | ref
+expr <<= fn_type | fn | nomatch | call | p_expr | type_ | ph | ref
 
 name = Group(IDENT).set_name("name")
 i_param = (LBRACE + name + COLON + expr + RBRACE).set_name("implicit_param")
 e_param = (LPAREN + name + COLON + expr + RPAREN).set_name("explicit_param")
 fn_type <<= (i_param | e_param) + ARROW + expr
 fn <<= FUN + Group(OneOrMore(name)) + TO + expr
+nomatch = (NOMATCH + I_WHITE + e_arg).leave_whitespace()
 callee = ref | p_expr
-call <<= (callee + inline_one_or_more(i_arg | e_arg)).leave_whitespace()
+call <<= (callee + OneOrMore(I_WHITE + (i_arg | e_arg))).leave_whitespace()
 i_arg <<= LPAREN + IDENT + ASSIGN + expr + RPAREN
 e_arg <<= (type_ | ref | p_expr).leave_whitespace()
 p_expr <<= LPAREN + expr + RPAREN

@@ -44,6 +44,11 @@ class Placeholder(Node):
     is_user: bool
 
 
+@dataclass(frozen=True)
+class Nomatch(Node):
+    arg: Node
+
+
 def _with_placeholders(f: Node, f_ty: ir.IR, implicit: str | bool) -> Node | None:
     if not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit:
         return None
@@ -85,6 +90,7 @@ _g.fn_type.add_parse_action(lambda l, r: FnType(l, r[0], r[1]))
 _g.fn.add_parse_action(
     lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
 )
+_g.nomatch.add_parse_action(lambda l, r: Nomatch(l, r[0][0]))
 _g.i_arg.add_parse_action(lambda l, r: (r[1], r[0]))
 _g.e_arg.add_parse_action(lambda l, r: (r[0], False))
 _g.call.add_parse_action(

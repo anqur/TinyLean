@@ -317,3 +317,9 @@ class TestParser(TestCase):
         self.assertEqual(0, len(c.params))
         self.assertEqual(1, len(c.ty_args))
         self.assertEqual("T", c.ty_args[0][0].name.text)
+
+    def test_parse_expr_nomatch(self):
+        x = parse(grammar.nomatch, "nomatch x")[0]
+        assert isinstance(x, ast.Nomatch)
+        assert isinstance(x.arg, ast.Ref)
+        self.assertEqual("x", x.arg.name.text)
