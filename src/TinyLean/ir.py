@@ -270,7 +270,6 @@ class Converter:
         assert len(xs) == len(ys)
         for i, a in xs.items():  # pragma: no cover
             # TODO: Testing.
-            assert i in ys
             if not self.eq(a, ys[i]):
                 return False
         return True

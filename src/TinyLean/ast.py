@@ -321,13 +321,13 @@ class TypeChecker:
         if isinstance(n, Ref):
             if param := self.locals.get(n.name.id):
                 return ir.Ref(param.name), param.type
-            d = self._get_global(n.name.id)
+            d = self.globals[n.name.id]
             if isinstance(d, Def):
                 return ir.from_def(d)
             if isinstance(d, Data):
                 return ir.from_data(d)
             assert isinstance(d, Ctor)
-            data_decl = self._get_global(d.ty_name.id)
+            data_decl = self.globals[d.ty_name.id]
             assert isinstance(data_decl, Data)
             return ir.from_ctor(d, data_decl)
         if isinstance(n, FnType):
@@ -359,7 +359,7 @@ class TypeChecker:
             arg, arg_ty = self.infer(n.arg)
             if not isinstance(arg_ty, ir.Data):
                 raise TypeMismatchError("datatype", str(arg_ty), n.arg.loc)
-            data = self._get_global(arg_ty.name.id)
+            data = self.globals[arg_ty.name.id]
             assert isinstance(data, Data)
             if len(data.ctors) > 0:
                 raise TypeMismatchError("empty datatype", str(arg_ty), n.arg.loc)
@@ -369,10 +369,6 @@ class TypeChecker:
 
     def _inliner(self):
         return ir.Inliner(self.holes)
-
-    def _get_global(self, i: int):
-        assert i in self.globals
-        return self.globals[i]
 
     def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
         self.locals[p.name.id] = p

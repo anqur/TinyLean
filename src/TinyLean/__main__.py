@@ -6,27 +6,25 @@ import pyparsing
 from . import ast
 
 
-infile = lambda: Path(sys.argv[1])
-
-
 def fatal(m: str | Exception):
     print(m)
     sys.exit(1)
 
 
+infile = Path(sys.argv[1]) if len(sys.argv) > 1 else fatal("usage: tinylean FILE")
+
+
 def fatal_on(text: str, loc: int, m: str):
     ln = pyparsing.util.lineno(loc, text)
     col = pyparsing.util.col(loc, text)
-    fatal(f"{infile()}:{ln}:{col}: {m}")
+    fatal(f"{infile}:{ln}:{col}: {m}")
 
 
 def main():
     try:
-        with open(infile()) as f:
+        with open(infile) as f:
             text = f.read()
-            ast.check_string(text, infile().suffix == ".md")
-    except IndexError:
-        fatal("usage: tinylean FILE")
+            ast.check_string(text, infile.suffix == ".md")
     except OSError as e:
         fatal(e)
     except pyparsing.exceptions.ParseException as e:
@@ -51,7 +49,7 @@ def main():
     except RecursionError as e:
         print("Program too complex or oops you just got '⊥'! Please report this issue:")
         raise e
-    except AssertionError as e:
+    except Exception as e:
         print("Internal compiler error! Please report this issue:")
         raise e
 
