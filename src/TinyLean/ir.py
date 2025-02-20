@@ -88,6 +88,29 @@ class Nomatch(IR):
         return "nomatch"
 
 
+# TODO: Testing.
+@dataclass(frozen=True)
+class Case(IR):  # pragma: no cover
+    ctor: Name
+    params: list[Param[IR]]
+    body: IR
+
+    def __str__(self):
+        s = " ".join([str(self.ctor), *map(str, self.params)])
+        return f"| {s} => {self.body}"
+
+
+# TODO: Testing.
+@dataclass(frozen=True)
+class Match(IR):  # pragma: no cover
+    arg: IR
+    cases: dict[int, Case]
+
+    def __str__(self):
+        cs = " ".join(map(str, self.cases.values()))
+        return f"match {self.arg} with {cs}"
+
+
 @dataclass(frozen=True)
 class Renamer:
     locals: dict[int, int] = field(default_factory=dict)

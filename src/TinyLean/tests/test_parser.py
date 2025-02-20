@@ -327,6 +327,7 @@ class TestParser(TestCase):
     def test_parse_expr_case(self):
         x = parse(grammar.case, "| A a b => a")[0]
         assert isinstance(x, ast.Case)
+        self.assertEqual(2, x.loc)
         self.assertEqual("A", x.ctor.name.text)
         self.assertEqual(2, len(x.params))
         self.assertEqual("a", x.params[0].text)

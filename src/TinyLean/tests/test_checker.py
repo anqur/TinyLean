@@ -123,7 +123,7 @@ class TestTypeChecker(TestCase):
         assert isinstance(example.body, ir.Type)
 
     def test_check_program_call_implicit_arg_failed(self):
-        with self.assertRaises(ast.UndefinedImplicitParam) as e:
+        with self.assertRaises(ast.UndefinedVariableError) as e:
             ast.check_string(
                 """
                 def id {T: Type} (a: T): T := a

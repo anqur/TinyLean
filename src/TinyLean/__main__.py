@@ -41,9 +41,18 @@ def main(file=_F if _F else fatal("usage: tinylean FILE")):
         ty_msg = f"  {name} : {ty}"
         ctx_msg = "".join([f"\n  {p}" for p in ctx.values()]) if ctx else " (none)"
         fatal_on(text, loc, f"unsolved placeholder:\n{ty_msg}\n\ncontext:{ctx_msg}")
-    except ast.UndefinedImplicitParam as e:
+    except ast.UnknownCaseError as e:
+        want, got, loc = e.args
+        fatal_on(text, loc, f"cannot match case '{got}' of type '{want}'")
+    except ast.DuplicateCaseError as e:
         name, loc = e.args
-        fatal_on(text, loc, f"undefined implicit parameter '{name}'")
+        fatal_on(text, loc, f"duplicate case '{name}'")
+    except ast.CaseParamMismatchError as e:
+        want, got, loc = e.args
+        fatal_on(text, loc, f"want '{want}' case parameters, but got '{got}'")
+    except ast.CaseMissError as e:
+        miss, loc = e.args
+        fatal_on(text, loc, f"missing case(s): {miss}")
     except RecursionError as e:
         print("Program too complex or oops you just got '⊥'! Please report this issue:")
         raise e

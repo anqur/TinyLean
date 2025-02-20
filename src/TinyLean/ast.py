@@ -75,7 +75,7 @@ def _with_placeholders(f: Node, f_ty: ir.IR, implicit: str | bool) -> Node | Non
         assert isinstance(f_ty, ir.FnType)
 
         if not f_ty.param.is_implicit:
-            raise UndefinedImplicitParam(implicit, f.loc)
+            raise UndefinedVariableError(implicit, f.loc)
         if f_ty.param.name.text == implicit:
             break
         pending += 1
@@ -105,7 +105,7 @@ _g.fn.add_parse_action(
     lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
 )
 _g.match.add_parse_action(lambda l, r: Match(l, r[0], list(r[1])))
-_g.case.add_parse_action(lambda l, r: Case(l, r[0], r[1], r[2]))
+_g.case.add_parse_action(lambda r: Case(r[0].loc, r[0], r[1], r[2]))
 _g.nomatch.add_parse_action(lambda l, r: Nomatch(l, r[0][0]))
 _g.i_arg.add_parse_action(lambda l, r: (r[1], r[0]))
 _g.e_arg.add_parse_action(lambda l, r: (r[0], False))
@@ -250,7 +250,16 @@ class TypeMismatchError(Exception): ...
 class UnsolvedPlaceholderError(Exception): ...
 
 
-class UndefinedImplicitParam(Exception): ...
+class UnknownCaseError(Exception): ...
+
+
+class DuplicateCaseError(Exception): ...
+
+
+class CaseParamMismatchError(Exception): ...
+
+
+class CaseMissError(Exception): ...
 
 
 @dataclass(frozen=True)
@@ -388,6 +397,33 @@ class TypeChecker:
             if len(_c(Data, self.globals[got.name.id]).ctors):
                 raise TypeMismatchError("empty datatype", str(got), n.arg.loc)
             return ir.Nomatch(), self._insert_hole(n.loc, False, ir.Type())
+        if isinstance(n, Match): # pragma: no cover
+            # TODO: Testing.
+            arg, arg_ty = self.infer(n.arg)
+            if not isinstance(arg_ty, ir.Data):
+                raise TypeMismatchError("datatype", str(arg_ty), n.arg.loc)
+            data = _c(Data, self.globals[arg_ty.name.id])
+            ctors = {c.name.id: c for c in data.ctors}
+            ty: ir.IR | None = None
+            cases: dict[int, ir.Case] = {}
+            for c in n.cases:
+                ctor = ctors.get(c.ctor.name.id)
+                if not ctor:
+                    raise UnknownCaseError(data.name.text, c.ctor.name.text, c.loc)
+                if ctor.name.id in cases:
+                    raise DuplicateCaseError(ctor.name.text, c.loc)
+                if len(c.params) != len(ctor.params):
+                    raise CaseParamMismatchError(str(ctor.params), str(c.params), c.loc)
+                ps = [Param(n, p.type, False) for n, p in zip(c.params, ctor.params)]
+                body, body_ty = self.infer(c.body)
+                if ty is None:
+                    ty = body_ty
+                elif not ir.Converter(self.holes).eq(ty, body_ty):
+                    raise TypeMismatchError(str(ty), str(body_ty), c.loc)
+                cases[ctor.name.id] = ir.Case(ctor.name, ps, body)
+            if miss := [c.name.text for i, c in ctors.items() if i not in cases]:
+                raise CaseMissError(", ".join(miss), n.loc)
+            return ir.Match(arg, cases), ty
         assert isinstance(n, Type)
         return ir.Type(), ir.Type()
 
