@@ -330,7 +330,7 @@ class TypeChecker:
                 raise TypeMismatchError(str(want), "function", n.loc)
             ret = self._inliner().run_with(want.param.name, ir.Ref(n.param), want.ret)
             param = Param(n.param, want.param.type, want.param.is_implicit)
-            return ir.Fn(param, self._check_with(param, n.body, ret))
+            return ir.Fn(param, self._check_with(n.body, ret, param))
 
         holes_len = len(self.holes)
         val, got = self.infer(n)
@@ -368,7 +368,7 @@ class TypeChecker:
         if isinstance(n, FnType):
             p_typ = self.check(n.param.type, ir.Type())
             inferred_p = Param(n.param.name, p_typ, n.param.is_implicit)
-            b_val = self._check_with(inferred_p, n.ret, ir.Type())
+            b_val = self._check_with(n.ret, ir.Type(), inferred_p)
             return ir.FnType(inferred_p, b_val), ir.Type()
         if isinstance(n, Call):
             holes_len = len(self.holes)
@@ -382,7 +382,7 @@ class TypeChecker:
             if not isinstance(got, ir.FnType):
                 raise TypeMismatchError("function", str(got), n.callee.loc)
 
-            x_tm = self._check_with(got.param, n.arg, got.param.type)
+            x_tm = self._check_with(n.arg, got.param.type, got.param)
             typ = self._inliner().run_with(got.param.name, x_tm, got.ret)
             val = self._inliner().apply(f_val, x_tm)
             return val, typ
@@ -415,11 +415,10 @@ class TypeChecker:
                 if len(c.params) != len(ctor.params):
                     raise CaseParamMismatchError(str(ctor.params), str(c.params), c.loc)
                 ps = [Param(n, p.type, False) for n, p in zip(c.params, ctor.params)]
-                body, body_ty = self.infer(c.body)
                 if ty is None:
-                    ty = body_ty
-                elif not ir.Converter(self.holes).eq(ty, body_ty):
-                    raise TypeMismatchError(str(ty), str(body_ty), c.loc)
+                    body, ty = self.infer(c.body)
+                else:
+                    body = self.check(c.body, ty)
                 cases[ctor.name.id] = ir.Case(ctor.name, ps, body)
             if miss := [c.name.text for i, c in ctors.items() if i not in cases]:
                 raise CaseMissError(", ".join(miss), n.loc)
@@ -430,7 +429,7 @@ class TypeChecker:
     def _inliner(self):
         return ir.Inliner(self.holes)
 
-    def _check_with(self, p: Param[ir.IR], n: Node, typ: ir.IR):
+    def _check_with(self, n: Node, typ: ir.IR, p: Param[ir.IR]):
         self.locals[p.name.id] = p
         ret = self.check(n, typ)
         if p.name.id in self.locals:
