@@ -201,10 +201,10 @@ class NameResolver:
             raise UndefinedVariableError(n.name.text, n.loc)
         if isinstance(n, FnType):
             typ = self.expr(n.param.type)
-            b = self._guard_local(n.param.name, n.ret)
+            b = self._with_locals(n.ret, n.param.name)
             return FnType(n.loc, Param(n.param.name, typ, n.param.is_implicit), b)
         if isinstance(n, Fn):
-            return Fn(n.loc, n.param, self._guard_local(n.param, n.body))
+            return Fn(n.loc, n.param, self._with_locals(n.body, n.param))
         if isinstance(n, Call):
             return Call(n.loc, self.expr(n.callee), self.expr(n.arg), n.implicit)
         if isinstance(n, Nomatch):
@@ -212,13 +212,14 @@ class NameResolver:
         assert isinstance(n, Type) or isinstance(n, Placeholder)
         return n
 
-    def _guard_local(self, v: Name, node: Node):
-        old = self._insert_local(v)
+    def _with_locals(self, node: Node, *names: Name):
+        olds = [(v, self._insert_local(v)) for v in names]
         ret = self.expr(node)
-        if old:
-            self._insert_local(old)
-        elif not v.is_unbound():
-            del self.locals[v.text]
+        for v, old in olds:
+            if old:
+                self._insert_local(old)
+            elif not v.is_unbound():
+                del self.locals[v.text]
         return ret
 
     def _insert_local(self, v: Name):

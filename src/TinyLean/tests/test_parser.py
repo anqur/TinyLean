@@ -325,11 +325,12 @@ class TestParser(TestCase):
         self.assertEqual("x", x.arg.name.text)
 
     def test_parse_expr_case(self):
-        x = parse(grammar.case, "| A a => a")[0]
+        x = parse(grammar.case, "| A a b => a")[0]
         assert isinstance(x, ast.Case)
         self.assertEqual("A", x.ctor.text)
-        self.assertEqual(1, len(x.params))
+        self.assertEqual(2, len(x.params))
         self.assertEqual("a", x.params[0].text)
+        self.assertEqual("b", x.params[1].text)
         assert isinstance(x.body, ast.Ref)
         self.assertEqual("a", x.body.name.text)
 
@@ -340,7 +341,7 @@ class TestParser(TestCase):
             match Type with
             | A a => a
             | B b => b
-            | _ => x
+            | _ => x /- not actually a default case -/
             """,
         )[0]
         assert isinstance(x, ast.Match)
