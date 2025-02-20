@@ -329,6 +329,16 @@ class TestTypeChecker(TestCase):
             str(cons_ty),
         )
 
+    def test_check_program_ctor_eq(self):
+        ast.check_string(
+            """
+            def Eq {T: Type} (a: T) (b: T): Type := (p: (v: T) -> Type) -> (pa: p a) -> p b
+            def refl {T: Type} (a: T): Eq a a := fun p pa => pa
+            inductive A where | AA open A
+            example: Eq AA AA := refl AA
+            """
+        )
+
     def test_check_program_nomatch(self):
         _, _, e = ast.check_string(
             """
@@ -338,11 +348,8 @@ class TestTypeChecker(TestCase):
             """
         )
         assert isinstance(e, Example)
-        p = e.params[0].name.id
         assert isinstance(e.body, ir.Nomatch)
-        assert isinstance(e.body.arg, ir.Ref)
-        a = e.body.arg.name.id
-        self.assertEqual(p, a)
+        self.assertEqual("nomatch", str(e.body))
 
     def test_check_program_nomatch_non_data_failed(self):
         with self.assertRaises(ast.TypeMismatchError) as e:
@@ -364,3 +371,15 @@ class TestTypeChecker(TestCase):
         self.assertEqual("empty datatype", str(want))
         self.assertEqual("A", str(got))
         self.assertEqual(82, loc)
+
+    def test_check_program_nomatch_eq(self):
+        ast.check_string(
+            """
+            def Eq {T: Type} (a: T) (b: T): Type := (p: (v: T) -> Type) -> (pa: p a) -> p b
+            def refl {T: Type} (a: T): Eq a a := fun p pa => pa
+            inductive Bottom where open Bottom
+            def a (x: Bottom): Type := nomatch x
+            def b (x: Bottom): Type := nomatch x
+            example (x: Bottom): Eq (a x) (b x) := refl (a x)
+            """
+        )

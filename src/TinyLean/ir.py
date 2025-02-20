@@ -84,11 +84,8 @@ class Ctor(IR):
 
 @dataclass(frozen=True)
 class Nomatch(IR):
-    arg: IR
-
-    def __str__(self):  # pragma: no cover
-        # TODO: Testing.
-        return f"(nomatch {self.arg})"
+    def __str__(self):
+        return "nomatch"
 
 
 @dataclass(frozen=True)
@@ -110,9 +107,7 @@ class Renamer:
             return Data(v.name, {i: self.run(v) for i, v in v.args.items()})
         if isinstance(v, Ctor):
             return Ctor(v.ty_name, v.name, {i: self.run(v) for i, v in v.args.items()})
-        if isinstance(v, Nomatch):
-            return Nomatch(self.run(v.arg))
-        assert isinstance(v, Type) or isinstance(v, Placeholder)
+        assert any(isinstance(v, c) for c in (Type, Placeholder, Nomatch))
         return v
 
     def _param(self, p: Param[IR]):
@@ -197,9 +192,7 @@ class Inliner:
             return Ctor(v.ty_name, v.name, {i: self.run(v) for i, v in v.args.items()})
         if isinstance(v, Data):
             return Data(v.name, {i: self.run(v) for i, v in v.args.items()})
-        if isinstance(v, Nomatch):
-            return Nomatch(self.run(v.arg))
-        assert isinstance(v, Type)
+        assert isinstance(v, Type) or isinstance(v, Nomatch)
         return v
 
     def run_with(self, a_name: Name, a: IR, b: IR):
@@ -239,13 +232,9 @@ class Converter:
                 return self.eq(b, Inliner(self.holes).run_with(q.name, Ref(p.name), c))
             case Data(x, xs), Data(y, ys):
                 return x.id == y.id and self._args(xs, ys)
-            case Ctor(t, x, xs), Ctor(u, y, ys):  # pragma: no cover
-                # TODO: Testing.
+            case Ctor(t, x, xs), Ctor(u, y, ys):
                 return t.id == u.id and x.id == y.id and self._args(xs, ys)
-            case Nomatch(x), Nomatch(y):  # pragma: no cover
-                # TODO: Testing.
-                return self.eq(x, y)
-            case Type(), Type():
+            case (Type(), Type()) | (Nomatch(), Nomatch()):
                 return True
 
         # FIXME: Following cases not seen in tests yet:
@@ -268,8 +257,7 @@ class Converter:
 
     def _args(self, xs: dict[int, IR], ys: dict[int, IR]):
         assert len(xs) == len(ys)
-        for i, a in xs.items():  # pragma: no cover
-            # TODO: Testing.
+        for i, a in xs.items():
             if not self.eq(a, ys[i]):
                 return False
         return True

@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-import pyparsing
+from pyparsing import util, exceptions
 
 from . import ast
 
@@ -11,23 +11,21 @@ def fatal(m: str | Exception):
     sys.exit(1)
 
 
-infile = Path(sys.argv[1]) if len(sys.argv) > 1 else fatal("usage: tinylean FILE")
+_F = Path(sys.argv[1]) if len(sys.argv) > 1 else None
 
 
 def fatal_on(text: str, loc: int, m: str):
-    ln = pyparsing.util.lineno(loc, text)
-    col = pyparsing.util.col(loc, text)
-    fatal(f"{infile}:{ln}:{col}: {m}")
+    fatal(f"{_F}:{util.lineno(loc, text)}:{util.col(loc, text)}: {m}")
 
 
-def main():
+def main(file=_F if _F else fatal("usage: tinylean FILE")):
     try:
-        with open(infile) as f:
+        with open(file) as f:
             text = f.read()
-            ast.check_string(text, infile.suffix == ".md")
+            ast.check_string(text, file.suffix == ".md")
     except OSError as e:
         fatal(e)
-    except pyparsing.exceptions.ParseException as e:
+    except exceptions.ParseException as e:
         fatal_on(text, e.loc, str(e).split("(at char")[0].strip())
     except ast.UndefinedVariableError as e:
         v, loc = e.args

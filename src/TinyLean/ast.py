@@ -1,7 +1,7 @@
 from functools import reduce
 from itertools import chain
 from dataclasses import dataclass, field
-from typing import OrderedDict
+from typing import OrderedDict, cast as _c
 
 from . import Name, Param, Decl, ir, grammar as _g, fresh, Def, Example, Ctor, Data
 
@@ -356,14 +356,12 @@ class TypeChecker:
             v = self._insert_hole(n.loc, n.is_user, ty)
             return v, ty
         if isinstance(n, Nomatch):
-            arg, arg_ty = self.infer(n.arg)
-            if not isinstance(arg_ty, ir.Data):
-                raise TypeMismatchError("datatype", str(arg_ty), n.arg.loc)
-            data = self.globals[arg_ty.name.id]
-            assert isinstance(data, Data)
-            if len(data.ctors) > 0:
-                raise TypeMismatchError("empty datatype", str(arg_ty), n.arg.loc)
-            return ir.Nomatch(arg), self._insert_hole(n.loc, False, ir.Type())
+            _, got = self.infer(n.arg)
+            if not isinstance(got, ir.Data):
+                raise TypeMismatchError("datatype", str(got), n.arg.loc)
+            if len(_c(Data, self.globals[got.name.id]).ctors):
+                raise TypeMismatchError("empty datatype", str(got), n.arg.loc)
+            return ir.Nomatch(), self._insert_hole(n.loc, False, ir.Type())
         assert isinstance(n, Type)
         return ir.Type(), ir.Type()
 
