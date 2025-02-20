@@ -4,9 +4,9 @@ COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 IDENT = unicode_set.identifier()
 
-DEF, EXAMPLE, INDUCTIVE, WHERE, OPEN, TYPE, NOMATCH = map(
+DEF, EXAMPLE, INDUCTIVE, WHERE, OPEN, TYPE, NOMATCH, MATCH, WITH = map(
     lambda w: Suppress(Keyword(w)),
-    "def example inductive where open Type nomatch".split(),
+    "def example inductive where open Type nomatch match with".split(),
 )
 
 ASSIGN, ARROW, FUN, TO = map(
@@ -14,23 +14,27 @@ ASSIGN, ARROW, FUN, TO = map(
 )
 
 LPAREN, RPAREN, LBRACE, RBRACE, COLON, UNDER, BAR = map(Suppress, "(){}:_|")
-I_WHITE = Opt(Suppress(White(" \t\r"))).set_name("inline_whitespace")
+INLINE_WHITE = Opt(Suppress(White(" \t\r"))).set_name("inline_whitespace")
 
-expr, fn_type, fn, nomatch, call, i_arg, e_arg, p_expr, type_, ph, ref = map(
-    lambda n: Forward().set_name(n),
-    "expr fn_type fn nomatch call implicit_arg explicit_arg paren_expr type placeholder ref".split(),
+forwards = lambda names: map(lambda n: Forward().set_name(n), names.split())
+
+expr, fn_type, fn, match, nomatch, call, p_expr, type_, ph, ref = forwards(
+    "expr fn_type fn match nomatch call paren_expr type placeholder ref"
 )
+case, i_arg, e_arg = forwards("case implicit_arg explicit_arg")
 
-expr <<= fn_type | fn | nomatch | call | p_expr | type_ | ph | ref
+expr <<= fn_type | fn | match | nomatch | call | p_expr | type_ | ph | ref
 
 name = Group(IDENT).set_name("name")
 i_param = (LBRACE + name + COLON + expr + RBRACE).set_name("implicit_param")
 e_param = (LPAREN + name + COLON + expr + RPAREN).set_name("explicit_param")
 fn_type <<= (i_param | e_param) + ARROW + expr
 fn <<= FUN + Group(OneOrMore(name)) + TO + expr
-nomatch <<= (NOMATCH + I_WHITE + e_arg).leave_whitespace()
+match <<= MATCH + (type_ | ref | p_expr) + WITH + Group(OneOrMore(case))
+case <<= BAR + name + Group(ZeroOrMore(name)) + TO + expr
+nomatch <<= (NOMATCH + INLINE_WHITE + e_arg).leave_whitespace()
 callee = ref | p_expr
-call <<= (callee + OneOrMore(I_WHITE + (i_arg | e_arg))).leave_whitespace()
+call <<= (callee + OneOrMore(INLINE_WHITE + (i_arg | e_arg))).leave_whitespace()
 i_arg <<= LPAREN + IDENT + ASSIGN + expr + RPAREN
 e_arg <<= (type_ | ref | p_expr).leave_whitespace()
 p_expr <<= LPAREN + expr + RPAREN

@@ -49,6 +49,19 @@ class Nomatch(Node):
     arg: Node
 
 
+@dataclass(frozen=True)
+class Case(Node):
+    ctor: Name
+    params: list[Name]
+    body: Node
+
+
+@dataclass(frozen=True)
+class Match(Node):
+    arg: Ref
+    cases: list[Case]
+
+
 def _with_placeholders(f: Node, f_ty: ir.IR, implicit: str | bool) -> Node | None:
     if not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit:
         return None
@@ -81,6 +94,7 @@ def _call_placeholder(f: Node):
 
 
 _g.name.add_parse_action(lambda r: Name(r[0][0]))
+
 _g.type_.add_parse_action(lambda l, r: Type(l))
 _g.ph.add_parse_action(lambda l, r: Placeholder(l, True))
 _g.ref.add_parse_action(lambda l, r: Ref(l, r[0][0]))
@@ -90,6 +104,8 @@ _g.fn_type.add_parse_action(lambda l, r: FnType(l, r[0], r[1]))
 _g.fn.add_parse_action(
     lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
 )
+_g.match.add_parse_action(lambda l, r: Match(l, r[0], list(r[1])))
+_g.case.add_parse_action(lambda l, r: Case(l, r[0], r[1], r[2]))
 _g.nomatch.add_parse_action(lambda l, r: Nomatch(l, r[0][0]))
 _g.i_arg.add_parse_action(lambda l, r: (r[1], r[0]))
 _g.e_arg.add_parse_action(lambda l, r: (r[0], False))
@@ -97,6 +113,7 @@ _g.call.add_parse_action(
     lambda l, r: reduce(lambda a, b: Call(l, a, b[0], b[1]), r[1:], r[0])
 )
 _g.p_expr.add_parse_action(lambda r: r[0])
+
 _g.return_type.add_parse_action(lambda l, r: r[0] if len(r) else Placeholder(l, False))
 _g.definition.add_parse_action(
     lambda r: Def(r[0].loc, r[0].name, list(r[1]), r[2], r[3])
