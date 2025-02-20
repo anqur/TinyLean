@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from functools import reduce as _r
 from typing import Optional, cast as _c, OrderedDict
+from collections import OrderedDict as _Od
 
 from . import Name, Param, Def, Data as DataDecl, Ctor as CtorDecl
 
@@ -63,7 +64,7 @@ class Placeholder(IR):
 @dataclass(frozen=True)
 class Data(IR):
     name: Name
-    args: dict[int, IR]
+    args: OrderedDict[int, IR]
 
     def __str__(self):
         s = " ".join(str(x) for x in [self.name, *self.args.values()])
@@ -74,7 +75,7 @@ class Data(IR):
 class Ctor(IR):
     ty_name: Name
     name: Name
-    args: dict[int, IR]
+    args: OrderedDict[int, IR]
 
     def __str__(self):
         n = f"{self.ty_name}.{self.name}"
@@ -127,10 +128,19 @@ class Renamer:
         if isinstance(v, FnType):
             return FnType(self._param(v.param), self.run(v.ret))
         if isinstance(v, Data):
-            return Data(v.name, {i: self.run(v) for i, v in v.args.items()})
+            return Data(v.name, _Od({i: self.run(v) for i, v in v.args.items()}))
         if isinstance(v, Ctor):
-            return Ctor(v.ty_name, v.name, {i: self.run(v) for i, v in v.args.items()})
-        assert any(isinstance(v, c) for c in (Type, Placeholder, Nomatch))
+            args = _Od({i: self.run(v) for i, v in v.args.items()})
+            return Ctor(v.ty_name, v.name, args)
+        if isinstance(v, Match):
+            arg = self.run(v.arg)
+            cases = {
+                i: Case(c.ctor, [self._param(p) for p in c.params], self.run(c.body))
+                for i, c in v.cases.items()
+            }
+            return Match(arg, cases)
+        # assert any(isinstance(v, c) for c in (Type, Placeholder, Nomatch))
+        any(isinstance(v, c) for c in (Type, Placeholder, Nomatch))
         return v
 
     def _param(self, p: Param[IR]):
@@ -151,7 +161,7 @@ def from_def(d: Def[IR]):
 
 
 def from_data(d: DataDecl[IR]):
-    args = {p.name.id: Ref(p.name) for p in d.params}
+    args = _Od({p.name.id: Ref(p.name) for p in d.params})
     return _rn(_to(d.params, Data(d.name, args))), _rn(_to(d.params, Type(), True))
 
 
@@ -160,12 +170,12 @@ def from_ctor(c: CtorDecl[IR], d: DataDecl[IR]):
     adhoc_xs = {x.name.id for x, _ in adhoc}
     miss = [Param(p.name, p.type, True) for p in d.params if p.name.id not in adhoc_xs]
 
-    args = {p.name.id: Ref(p.name) for p in c.params}
+    args = _Od({p.name.id: Ref(p.name) for p in c.params})
     v = _to(c.params, Ctor(d.name, c.name, args))
     v = _to(miss, v)
 
-    ty_miss_args = {p.name.id: Ref(p.name) for p in miss}
-    ty_adhoc_args = {x.name.id: v for x, v in adhoc}
+    ty_miss_args = _Od({p.name.id: Ref(p.name) for p in miss})
+    ty_adhoc_args = _Od({x.name.id: v for x, v in adhoc})
     ty = _to(c.params, Data(d.name, ty_miss_args | ty_adhoc_args), True)
     ty = _to(miss, ty, True)
 
@@ -201,7 +211,7 @@ class Inliner:
             f = self.run(v.callee)
             x = self.run(v.arg)
             if isinstance(f, Fn):
-                return self.run_with(f.param.name, x, f.body)
+                return self.run_with(f.body, (f.param.name, x))
             return Call(f, x)
         if isinstance(v, Fn):
             return Fn(self._param(v.param), self.run(v.body))
@@ -212,21 +222,34 @@ class Inliner:
             h.answer.type = self.run(h.answer.type)
             return v if h.answer.is_unsolved() else self.run(h.answer.value)
         if isinstance(v, Ctor):
-            return Ctor(v.ty_name, v.name, {i: self.run(v) for i, v in v.args.items()})
+            args = _Od({i: self.run(v) for i, v in v.args.items()})
+            return Ctor(v.ty_name, v.name, args)
         if isinstance(v, Data):
-            return Data(v.name, {i: self.run(v) for i, v in v.args.items()})
+            return Data(v.name, _Od({i: self.run(v) for i, v in v.args.items()}))
+        if isinstance(v, Match):
+            arg = self.run(v.arg)
+            cases = {
+                i: Case(c.ctor, [self._param(p) for p in c.params], self.run(c.body))
+                for i, c in v.cases.items()
+            }
+            if not isinstance(arg, Ctor):  # pragma: no cover
+                # TODO: Testing.
+                return Match(arg, cases)
+            c = cases[arg.name.id]
+            env = [(x.name, v) for x, v in zip(c.params, arg.args.values())]
+            return self.run_with(c.body, *env)
         assert isinstance(v, Type) or isinstance(v, Nomatch)
         return v
 
-    def run_with(self, a_name: Name, a: IR, b: IR):
-        self.env[a_name.id] = a
-        return self.run(b)
+    def run_with(self, x: IR, *env: tuple[Name, IR]):
+        self.env.update({n.id: v for n, v in env})
+        return self.run(x)
 
     def apply(self, f: IR, *args: IR):
         ret = f
         for x in args:
             if isinstance(ret, Fn):
-                ret = self.run_with(ret.param.name, x, ret.body)
+                ret = self.run_with(ret.body, (ret.param.name, x))
             else:
                 ret = Call(ret, x)
         return ret
@@ -252,7 +275,8 @@ class Converter:
             case FnType(p, b), FnType(q, c):
                 if not self.eq(p.type, q.type):
                     return False
-                return self.eq(b, Inliner(self.holes).run_with(q.name, Ref(p.name), c))
+                env = (q.name, Ref(p.name))
+                return self.eq(b, Inliner(self.holes).run_with(c, env))
             case Data(x, xs), Data(y, ys):
                 return x.id == y.id and self._args(xs, ys)
             case Ctor(t, x, xs), Ctor(u, y, ys):
@@ -263,6 +287,7 @@ class Converter:
         # FIXME: Following cases not seen in tests yet:
         assert not (isinstance(lhs, Fn) and isinstance(rhs, Fn))
         assert not (isinstance(lhs, Placeholder) and isinstance(rhs, Placeholder))
+        assert not (isinstance(lhs, Match) and isinstance(rhs, Match))
 
         return False
 

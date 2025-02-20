@@ -328,7 +328,7 @@ class TypeChecker:
             want = self._inliner().run(typ)
             if not isinstance(want, ir.FnType):
                 raise TypeMismatchError(str(want), "function", n.loc)
-            ret = self._inliner().run_with(want.param.name, ir.Ref(n.param), want.ret)
+            ret = self._inliner().run_with(want.ret, (want.param.name, ir.Ref(n.param)))
             param = Param(n.param, want.param.type, want.param.is_implicit)
             return ir.Fn(param, self._check_with(n.body, ret, param))
 
@@ -383,7 +383,7 @@ class TypeChecker:
                 raise TypeMismatchError("function", str(got), n.callee.loc)
 
             x_tm = self._check_with(n.arg, got.param.type, got.param)
-            typ = self._inliner().run_with(got.param.name, x_tm, got.ret)
+            typ = self._inliner().run_with(got.ret, (got.param.name, x_tm))
             val = self._inliner().apply(f_val, x_tm)
             return val, typ
         if isinstance(n, Placeholder):
@@ -413,12 +413,14 @@ class TypeChecker:
                 if ctor.name.id in cases:
                     raise DuplicateCaseError(ctor.name.text, c.loc)
                 if len(c.params) != len(ctor.params):
-                    raise CaseParamMismatchError(str(ctor.params), str(c.params), c.loc)
+                    want_len = len(ctor.params)
+                    got_len = len(c.params)
+                    raise CaseParamMismatchError(str(want_len), str(got_len), c.loc)
                 ps = [Param(n, p.type, False) for n, p in zip(c.params, ctor.params)]
                 if ty is None:
-                    body, ty = self.infer(c.body)
+                    body, ty = self._infer_with(c.body, *ps)
                 else:
-                    body = self.check(c.body, ty)
+                    body = self._check_with(c.body, ty, *ps)
                 cases[ctor.name.id] = ir.Case(ctor.name, ps, body)
             if miss := [c.name.text for i, c in ctors.items() if i not in cases]:
                 raise CaseMissError(", ".join(miss), n.loc)
@@ -429,12 +431,18 @@ class TypeChecker:
     def _inliner(self):
         return ir.Inliner(self.holes)
 
-    def _check_with(self, n: Node, typ: ir.IR, p: Param[ir.IR]):
-        self.locals[p.name.id] = p
+    def _check_with(self, n: Node, typ: ir.IR, *ps: Param[ir.IR]):
+        self.locals.update({p.name.id: p for p in ps})
         ret = self.check(n, typ)
-        if p.name.id in self.locals:
-            del self.locals[p.name.id]
+        [self.locals.pop(p.name.id, None) for p in ps]
         return ret
+
+    def _infer_with(self, n: Node, *ps: Param[ir.IR]):  # pragma: no cover
+        # TODO: Testing.
+        self.locals.update({p.name.id: p for p in ps})
+        v, ty = self.infer(n)
+        [self.locals.pop(p.name.id, None) for p in ps]
+        return v, ty
 
     def _insert_hole(self, loc: int, is_user: bool, typ: ir.IR):
         i = fresh()

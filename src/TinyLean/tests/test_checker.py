@@ -383,3 +383,22 @@ class TestTypeChecker(TestCase):
             example (x: Bottom): Eq (a x) (b x) := refl (a x)
             """
         )
+
+    def test_check_program_match(self):
+        _, _, e = ast.check_string(
+            """
+            inductive V where
+            | A (x: Type) (y: Type)
+            | B (x: Type)
+            open V
+
+            def f (v: V): Type :=
+            match v with
+            | A x y => x
+            | B x => x
+
+            example := f (A Type Type)
+            """
+        )
+        assert isinstance(e, Example)
+        assert isinstance(e.body, ir.Type)
