@@ -51,14 +51,14 @@ class Nomatch(Node):
 
 @dataclass(frozen=True)
 class Case(Node):
-    ctor: Name
+    ctor: Ref
     params: list[Name]
     body: Node
 
 
 @dataclass(frozen=True)
 class Match(Node):
-    arg: Ref
+    arg: Node
     cases: list[Case]
 
 
@@ -209,6 +209,14 @@ class NameResolver:
             return Call(n.loc, self.expr(n.callee), self.expr(n.arg), n.implicit)
         if isinstance(n, Nomatch):
             return Nomatch(n.loc, self.expr(n.arg))
+        if isinstance(n, Match):
+            arg = self.expr(n.arg)
+            cases = []
+            for c in n.cases:
+                ctor = _c(Ref, self.expr(c.ctor))
+                body = self._with_locals(c.body, *c.params)
+                cases.append(Case(c.loc, ctor, c.params, body))
+            return Match(n.loc, arg, cases)
         assert isinstance(n, Type) or isinstance(n, Placeholder)
         return n
 

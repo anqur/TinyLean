@@ -150,3 +150,27 @@ Footer.
         name, loc = e.exception.args
         self.assertEqual("A", name)
         self.assertEqual(20, loc)
+
+    def test_resolve_match(self):
+        resolve(
+            """
+            inductive A where | AA (T: Type) open A
+            example (x: A) :=
+              match x with
+              | A t => t
+            """
+        )
+
+    def test_resolve_match_failed(self):
+        with self.assertRaises(ast.UndefinedVariableError) as e:
+            resolve(
+                """
+                inductive A where | AA open A
+                example (x: A) :=
+                  match x with
+                  | A => b
+                """
+            )
+        name, loc = e.exception.args
+        self.assertEqual("b", name)
+        self.assertEqual(137, loc)
