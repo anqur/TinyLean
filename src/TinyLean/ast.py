@@ -397,7 +397,7 @@ class TypeChecker:
             if len(_c(Data, self.globals[got.name.id]).ctors):
                 raise TypeMismatchError("empty datatype", str(got), n.arg.loc)
             return ir.Nomatch(), self._insert_hole(n.loc, False, ir.Type())
-        if isinstance(n, Match): # pragma: no cover
+        if isinstance(n, Match):  # pragma: no cover
             # TODO: Testing.
             arg, arg_ty = self.infer(n.arg)
             if not isinstance(arg_ty, ir.Data):
