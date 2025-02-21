@@ -375,8 +375,7 @@ class TypeChecker:
             f_val, got = self.infer(n.callee)
 
             if implicit_f := _with_placeholders(n.callee, got, n.implicit):
-                for _ in range(len(self.holes) - holes_len):
-                    self.holes.popitem()
+                [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
                 return self.infer(Call(n.loc, implicit_f, n.arg, n.implicit))
 
             if not isinstance(got, ir.FnType):
@@ -410,9 +409,11 @@ class TypeChecker:
                 ctor = ctors.get(c.ctor.name.id)
                 if not ctor:
                     raise UnknownCaseError(data.name.text, c.ctor.name.text, c.loc)
-                holed = self._ctor_type_with_holes(c.loc, ctor, data)
-                if not ir.Converter(self.holes).eq(holed, arg_ty):
-                    raise TypeMismatchError(str(arg_ty), str(holed), c.loc)
+                holes_len = len(self.holes)
+                c_ty = self._ctor_type_with_holes(c.loc, ctor, data)
+                if not ir.Converter(self.holes).eq(c_ty, arg_ty):
+                    raise TypeMismatchError(str(arg_ty), str(c_ty), c.loc)
+                [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
                 if ctor.name.id in cases:
                     raise DuplicateCaseError(ctor.name.text, c.loc)
                 if len(c.params) != len(ctor.params):
@@ -425,8 +426,12 @@ class TypeChecker:
                 else:
                     body = self._check_with(c.body, ty, *ps)
                 cases[ctor.name.id] = ir.Case(ctor.name, ps, body)
-            if miss := [c.name.text for i, c in ctors.items() if i not in cases]:
-                raise CaseMissError(", ".join(miss), n.loc)
+            for ctor in [c for i, c in ctors.items() if i not in cases]:
+                holes_len = len(self.holes)
+                c_ty = self._ctor_type_with_holes(n.loc, ctor, data)
+                if ir.Converter(self.holes).eq(c_ty, arg_ty):
+                    raise CaseMissError(ctor.name.text, n.loc)
+                [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
             return ir.Match(arg, cases), ty
         assert isinstance(n, Type)
         return ir.Type(), ir.Type()
