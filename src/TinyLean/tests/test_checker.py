@@ -244,14 +244,14 @@ class TestTypeChecker(TestCase):
         assert isinstance(just_v, ir.Fn)
         assert isinstance(just_v.body, ir.Fn)
         assert isinstance(just_v.body.body, ir.Ctor)
-        just_arg = [*just_v.body.body.args.values()][0]
+        just_arg = just_v.body.body.args[0]
         assert isinstance(just_arg, ir.Ref)
         self.assertEqual(just_v.body.param.name.id, just_arg.name.id)
 
         assert isinstance(just_ty, ir.FnType)
         assert isinstance(just_ty.ret, ir.FnType)
         assert isinstance(just_ty.ret.ret, ir.Data)
-        just_ty_arg = [*just_ty.ret.ret.args.values()][0]
+        just_ty_arg = just_ty.ret.ret.args[0]
         assert isinstance(just_ty_arg, ir.Ref)
         self.assertEqual(just_ty.param.name.id, just_ty_arg.name.id)
 

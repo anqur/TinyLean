@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from functools import reduce as _r
 from typing import Optional, cast as _c, OrderedDict
-from collections import OrderedDict as _Od
 
 from . import Name, Param, Def, Data as DataDecl, Ctor as CtorDecl
 
@@ -64,10 +63,10 @@ class Placeholder(IR):
 @dataclass(frozen=True)
 class Data(IR):
     name: Name
-    args: OrderedDict[int, IR]
+    args: list[IR]
 
     def __str__(self):
-        s = " ".join(str(x) for x in [self.name, *self.args.values()])
+        s = " ".join(str(x) for x in [self.name, *self.args])
         return f"({s})" if len(self.args) else s
 
 
@@ -75,11 +74,11 @@ class Data(IR):
 class Ctor(IR):
     ty_name: Name
     name: Name
-    args: OrderedDict[int, IR]
+    args: list[IR]
 
     def __str__(self):
         n = f"{self.ty_name}.{self.name}"
-        s = " ".join(str(x) for x in [n, *self.args.values()])
+        s = " ".join(str(x) for x in [n, *self.args])
         return f"({s})" if len(self.args) else s
 
 
@@ -128,10 +127,9 @@ class Renamer:
         if isinstance(v, FnType):
             return FnType(self._param(v.param), self.run(v.ret))
         if isinstance(v, Data):
-            return Data(v.name, _Od({i: self.run(v) for i, v in v.args.items()}))
+            return Data(v.name, [self.run(v) for v in v.args])
         if isinstance(v, Ctor):
-            args = _Od({i: self.run(v) for i, v in v.args.items()})
-            return Ctor(v.ty_name, v.name, args)
+            return Ctor(v.ty_name, v.name, [self.run(v) for v in v.args])
         if isinstance(v, Match):
             arg = self.run(v.arg)
             cases = {
@@ -139,8 +137,7 @@ class Renamer:
                 for i, c in v.cases.items()
             }
             return Match(arg, cases)
-        # assert any(isinstance(v, c) for c in (Type, Placeholder, Nomatch))
-        any(isinstance(v, c) for c in (Type, Placeholder, Nomatch))
+        assert any(isinstance(v, c) for c in (Type, Placeholder, Nomatch))
         return v
 
     def _param(self, p: Param[IR]):
@@ -161,22 +158,19 @@ def from_def(d: Def[IR]):
 
 
 def from_data(d: DataDecl[IR]):
-    args = _Od({p.name.id: Ref(p.name) for p in d.params})
+    args = [Ref(p.name) for p in d.params]
     return _rn(_to(d.params, Data(d.name, args))), _rn(_to(d.params, Type(), True))
 
 
 def from_ctor(c: CtorDecl[IR], d: DataDecl[IR]):
-    adhoc = _c(list[tuple[Ref, IR]], c.ty_args)
-    adhoc_xs = {x.name.id for x, _ in adhoc}
-    miss = [Param(p.name, p.type, True) for p in d.params if p.name.id not in adhoc_xs]
+    adhoc = {x.name.id: v for x, v in _c(dict[Ref, IR], c.ty_args)}
+    miss = [Param(p.name, p.type, True) for p in d.params if p.name.id not in adhoc]
 
-    args = _Od({p.name.id: Ref(p.name) for p in c.params})
-    v = _to(c.params, Ctor(d.name, c.name, args))
+    v = _to(c.params, Ctor(d.name, c.name, [Ref(p.name) for p in c.params]))
     v = _to(miss, v)
 
-    ty_miss_args = _Od({p.name.id: Ref(p.name) for p in miss})
-    ty_adhoc_args = _Od({x.name.id: v for x, v in adhoc})
-    ty = _to(c.params, Data(d.name, ty_miss_args | ty_adhoc_args), True)
+    ty_args = [adhoc.get(p.name.id, Ref(p.name)) for p in d.params]
+    ty = _to(c.params, Data(d.name, ty_args), True)
     ty = _to(miss, ty, True)
 
     return _rn(v), _rn(ty)
@@ -222,10 +216,9 @@ class Inliner:
             h.answer.type = self.run(h.answer.type)
             return v if h.answer.is_unsolved() else self.run(h.answer.value)
         if isinstance(v, Ctor):
-            args = _Od({i: self.run(v) for i, v in v.args.items()})
-            return Ctor(v.ty_name, v.name, args)
+            return Ctor(v.ty_name, v.name, [self.run(v) for v in v.args])
         if isinstance(v, Data):
-            return Data(v.name, _Od({i: self.run(v) for i, v in v.args.items()}))
+            return Data(v.name, [self.run(v) for v in v.args])
         if isinstance(v, Match):
             arg = self.run(v.arg)
             cases = {
@@ -236,7 +229,7 @@ class Inliner:
                 # TODO: Testing.
                 return Match(arg, cases)
             c = cases[arg.name.id]
-            env = [(x.name, v) for x, v in zip(c.params, arg.args.values())]
+            env = [(x.name, v) for x, v in zip(c.params, arg.args)]
             return self.run_with(c.body, *env)
         assert isinstance(v, Type) or isinstance(v, Nomatch)
         return v
@@ -303,9 +296,6 @@ class Converter:
 
         return True
 
-    def _args(self, xs: dict[int, IR], ys: dict[int, IR]):
+    def _args(self, xs: list[IR], ys: list[IR]):
         assert len(xs) == len(ys)
-        for i, a in xs.items():
-            if not self.eq(a, ys[i]):
-                return False
-        return True
+        return all(self.eq(x, y) for x, y in zip(xs, ys))
