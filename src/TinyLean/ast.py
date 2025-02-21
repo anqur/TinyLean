@@ -410,6 +410,9 @@ class TypeChecker:
                 ctor = ctors.get(c.ctor.name.id)
                 if not ctor:
                     raise UnknownCaseError(data.name.text, c.ctor.name.text, c.loc)
+                holed = self._ctor_type_with_holes(c.loc, ctor, data)
+                if not ir.Converter(self.holes).eq(holed, arg_ty):
+                    raise TypeMismatchError(str(arg_ty), str(holed), c.loc)
                 if ctor.name.id in cases:
                     raise DuplicateCaseError(ctor.name.text, c.loc)
                 if len(c.params) != len(ctor.params):
@@ -448,6 +451,18 @@ class TypeChecker:
         i = fresh()
         self.holes[i] = ir.Hole(loc, is_user, self.locals.copy(), ir.Answer(typ))
         return ir.Placeholder(i, is_user)
+
+    def _ctor_type_with_holes(self, loc: int, c: Ctor[ir.IR], d: Data[ir.IR]):
+        _, ty = ir.from_ctor(c, d)
+        while isinstance(ty, ir.FnType):
+            p = ty.param
+            x = (
+                self._insert_hole(loc, False, p.type)
+                if p.is_implicit
+                else ir.Ref(p.name)
+            )
+            ty = self._inliner().run_with(ty.ret, (p.name, x))
+        return ty
 
 
 def check_string(text: str, is_markdown=False):

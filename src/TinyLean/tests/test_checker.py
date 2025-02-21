@@ -411,3 +411,30 @@ class TestTypeChecker(TestCase):
         )
         assert isinstance(e, Example)
         assert isinstance(e.body, ir.Type)
+
+    def test_check_program_match_dpm_failed(self):
+        text = """
+                    inductive N where
+                    | Z
+                    | S (n: N)
+                    open N
+
+                    inductive Vec (A: Type) (n: N) where
+                    | Nil (n := Z)
+                    | Cons {m: N} (a: A) (v: Vec A m) (n := S m)
+                    open Vec   
+
+                    def v0: Vec N Z := Nil
+
+                    example :=
+                      match v0 with
+                      | Nil => Z
+                      | Cons a v => Z
+                    """
+        want_loc = text.index("| Cons a v") + 2
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string(text)
+        want, got, loc = e.exception.args
+        self.assertIn("N.Z", str(want))
+        self.assertIn("N.S", str(got))
+        self.assertEqual(want_loc, loc)
