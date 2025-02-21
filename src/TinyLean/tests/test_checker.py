@@ -166,6 +166,15 @@ class TestTypeChecker(TestCase):
         assert isinstance(ty, ir.Type)
         self.assertEqual(75, loc)
 
+    def test_check_program_call_mixed_implicit(self):
+        ast.check_string(
+            """
+            def f (T: Type) {U: Type}: Type := U
+            /- Cannot insert placeholders for an implicit function type. -/
+            example: {U: Type} -> Type := f Type
+            """
+        )
+
     def test_check_program_datatype_nat(self):
         x, _, _, _2 = ast.check_string(
             """

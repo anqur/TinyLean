@@ -62,6 +62,10 @@ class Match(Node):
     cases: list[Case]
 
 
+def _can_insert_placeholders(ty: ir.IR):
+    return not isinstance(ty, ir.FnType) or not ty.param.is_implicit
+
+
 def _with_placeholders(f: Node, f_ty: ir.IR, implicit: str | bool) -> Node | None:
     if not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit:
         return None
@@ -337,15 +341,11 @@ class TypeChecker:
         got = self._inliner().run(got)
         want = self._inliner().run(typ)
 
-        # Check if we can insert placeholders for `val` of type `want` here.
-        #
-        # FIXME: No valid tests for this yet, we cannot insert placeholders for implicit function types.
-        # Change this to an actual check if we got any examples.
-        assert not isinstance(want, ir.FnType) or not want.param.is_implicit
-        if new_f := _with_placeholders(n, got, False):
-            # FIXME: No valid tests yet.
-            assert len(self.holes) == holes_len
-            val, got = self.infer(new_f)
+        if _can_insert_placeholders(want):
+            if new_f := _with_placeholders(n, got, False):
+                # FIXME: No valid tests yet.
+                assert len(self.holes) == holes_len
+                val, got = self.infer(new_f)
 
         if not ir.Converter(self.holes).eq(got, want):
             raise TypeMismatchError(str(want), str(got), n.loc)
