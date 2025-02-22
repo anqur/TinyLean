@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from . import resolve_expr
-from .. import ast, Name, Param, ir, Data, Example
+from .. import ast, Name, Param, ir, Data, Example, Def
 
 check_expr = lambda s, t: ast.TypeChecker().check(resolve_expr(s), t)
 infer_expr = lambda s: ast.TypeChecker().infer(resolve_expr(s))
@@ -394,7 +394,7 @@ class TestTypeChecker(TestCase):
         )
 
     def test_check_program_match(self):
-        _, _, e = ast.check_string(
+        _, f, e = ast.check_string(
             """
             inductive V where
             | A (x: Type) (y: Type)
@@ -408,6 +408,10 @@ class TestTypeChecker(TestCase):
 
             example := f (A Type Type)
             """
+        )
+        assert isinstance(f, Def)
+        self.assertEqual(
+            "match v with | A (x: Type) (y: Type) ↦ x | B (x: Type) ↦ x", str(f.body)
         )
         assert isinstance(e, Example)
         assert isinstance(e.body, ir.Type)
@@ -459,3 +463,87 @@ class TestTypeChecker(TestCase):
         self.assertIn("N.Z", str(want))
         self.assertIn("N.S", str(got))
         self.assertEqual(want_loc, loc)
+
+    def test_check_program_match_type_failed(self):
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string(
+                """
+                inductive A where | AA open A
+                example :=
+                  match Type with
+                  | AA => AA
+                """
+            )
+        want, got, loc = e.exception.args
+        self.assertEqual("datatype", str(want))
+        self.assertEqual("Type", str(got))
+        self.assertEqual(98, loc)
+
+    def test_check_program_match_unknown_case_failed(self):
+        with self.assertRaises(ast.UnknownCaseError) as e:
+            ast.check_string(
+                """
+                inductive A where | AA open A
+                inductive B where | BB open B
+                example (x: A) :=
+                  match x with
+                  | BB => AA
+                """
+            )
+        want, got, loc = e.exception.args
+        self.assertEqual("A", str(want))
+        self.assertEqual("BB", str(got))
+        self.assertEqual(178, loc)
+
+    def test_check_program_match_duplicate_case_failed(self):
+        text = """
+        inductive A where | AA open A
+
+        example (x: A): Type :=
+          match x with
+          | AA => (a: Type) -> Type
+          | AA => Type
+        """
+        with self.assertRaises(ast.DuplicateCaseError) as e:
+            ast.check_string(text)
+        name, loc = e.exception.args
+        self.assertEqual("AA", str(name))
+        self.assertEqual(text.index("AA => Type"), loc)
+
+    def test_check_program_match_param_mismatch_failed(self):
+        text = """
+        inductive A where | AA open A
+        example (x: A): Type :=
+          match x with
+          | AA a => AA
+        """
+        with self.assertRaises(ast.CaseParamMismatchError) as e:
+            ast.check_string(text)
+        want, got, loc = e.exception.args
+        self.assertEqual(0, want)
+        self.assertEqual(1, got)
+        self.assertEqual(text.index("AA a"), loc)
+
+    def test_check_program_match_miss_failed(self):
+        text = """
+        inductive A where | AA | BB open A
+        example (x: A): Type :=
+          match x with
+          | AA => AA
+        """
+        with self.assertRaises(ast.CaseMissError) as e:
+            ast.check_string(text)
+        name, loc = e.exception.args
+        self.assertEqual("BB", str(name))
+        self.assertEqual(text.index("match x with"), loc)
+
+    def test_check_program_match_inline(self):
+        ast.check_string(
+            """
+            inductive A where | AA open A
+            def f (x: A) :=
+              match x with
+              | AA => AA
+            def g (x: A) := f x /- match expression not inlined yet -/
+            """
+        )

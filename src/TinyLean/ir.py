@@ -88,21 +88,19 @@ class Nomatch(IR):
         return "nomatch"
 
 
-# TODO: Testing.
 @dataclass(frozen=True)
-class Case(IR):  # pragma: no cover
+class Case(IR):
     ctor: Name
     params: list[Param[IR]]
     body: IR
 
     def __str__(self):
         s = " ".join([str(self.ctor), *map(str, self.params)])
-        return f"| {s} => {self.body}"
+        return f"| {s} ↦ {self.body}"
 
 
-# TODO: Testing.
 @dataclass(frozen=True)
-class Match(IR):  # pragma: no cover
+class Match(IR):
     arg: IR
     cases: dict[int, Case]
 
@@ -225,8 +223,7 @@ class Inliner:
                 i: Case(c.ctor, [self._param(p) for p in c.params], self.run(c.body))
                 for i, c in v.cases.items()
             }
-            if not isinstance(arg, Ctor):  # pragma: no cover
-                # TODO: Testing.
+            if not isinstance(arg, Ctor):
                 return Match(arg, cases)
             c = cases[arg.name.id]
             env = [(x.name, v) for x, v in zip(c.params, arg.args)]

@@ -396,8 +396,7 @@ class TypeChecker:
             if len(_c(Data, self.globals[got.name.id]).ctors):
                 raise TypeMismatchError("empty datatype", str(got), n.arg.loc)
             return ir.Nomatch(), self._insert_hole(n.loc, False, ir.Type())
-        if isinstance(n, Match):  # pragma: no cover
-            # TODO: Testing.
+        if isinstance(n, Match):
             arg, arg_ty = self.infer(n.arg)
             if not isinstance(arg_ty, ir.Data):
                 raise TypeMismatchError("datatype", str(arg_ty), n.arg.loc)
@@ -417,9 +416,7 @@ class TypeChecker:
                 if ctor.name.id in cases:
                     raise DuplicateCaseError(ctor.name.text, c.loc)
                 if len(c.params) != len(ctor.params):
-                    want_len = len(ctor.params)
-                    got_len = len(c.params)
-                    raise CaseParamMismatchError(str(want_len), str(got_len), c.loc)
+                    raise CaseParamMismatchError(len(ctor.params), len(c.params), c.loc)
                 ps = [Param(n, p.type, False) for n, p in zip(c.params, ctor.params)]
                 if ty is None:
                     body, ty = self._infer_with(c.body, *ps)
@@ -445,8 +442,7 @@ class TypeChecker:
         [self.locals.pop(p.name.id, None) for p in ps]
         return ret
 
-    def _infer_with(self, n: Node, *ps: Param[ir.IR]):  # pragma: no cover
-        # TODO: Testing.
+    def _infer_with(self, n: Node, *ps: Param[ir.IR]):
         self.locals.update({p.name.id: p for p in ps})
         v, ty = self.infer(n)
         [self.locals.pop(p.name.id, None) for p in ps]
