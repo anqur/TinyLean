@@ -409,7 +409,7 @@ class TypeChecker:
                 if not ctor:
                     raise UnknownCaseError(data.name.text, c.ctor.name.text, c.loc)
                 holes_len = len(self.holes)
-                c_ty = self._ctor_type_with_holes(c.loc, ctor, data)
+                c_ty = self._ctor_return_type(c.loc, ctor, data)
                 if not ir.Converter(self.holes).eq(c_ty, arg_ty):
                     raise TypeMismatchError(str(arg_ty), str(c_ty), c.loc)
                 [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
@@ -423,12 +423,8 @@ class TypeChecker:
                 else:
                     body = self._check_with(c.body, ty, *ps)
                 cases[ctor.name.id] = ir.Case(ctor.name, ps, body)
-            for ctor in [c for i, c in ctors.items() if i not in cases]:
-                holes_len = len(self.holes)
-                c_ty = self._ctor_type_with_holes(n.loc, ctor, data)
-                if ir.Converter(self.holes).eq(c_ty, arg_ty):
-                    raise CaseMissError(ctor.name.text, n.loc)
-                [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
+            for c in [c for i, c in ctors.items() if i not in cases]:
+                self._exhaust(n.loc, c, data, arg_ty)
             return ir.Match(arg, cases), ty
         assert isinstance(n, Type)
         return ir.Type(), ir.Type()
@@ -453,7 +449,7 @@ class TypeChecker:
         self.holes[i] = ir.Hole(loc, is_user, self.locals.copy(), ir.Answer(typ))
         return ir.Placeholder(i, is_user)
 
-    def _ctor_type_with_holes(self, loc: int, c: Ctor[ir.IR], d: Data[ir.IR]):
+    def _ctor_return_type(self, loc: int, c: Ctor[ir.IR], d: Data[ir.IR]):
         _, ty = ir.from_ctor(c, d)
         while isinstance(ty, ir.FnType):
             p = ty.param
@@ -464,6 +460,12 @@ class TypeChecker:
             )
             ty = self._inliner().run_with(ty.ret, (p.name, x))
         return ty
+
+    def _exhaust(self, loc: int, c: Ctor[ir.IR], d: Data[ir.IR], want: ir.IR):
+        holes_len = len(self.holes)
+        if ir.Converter(self.holes).eq(self._ctor_return_type(loc, c, d), want):
+            raise CaseMissError(c.name.text, loc)
+        [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
 
 
 def check_string(text: str, is_markdown=False):
