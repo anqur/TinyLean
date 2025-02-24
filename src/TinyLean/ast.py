@@ -393,8 +393,9 @@ class TypeChecker:
             _, got = self.infer(n.arg)
             if not isinstance(got, ir.Data):
                 raise TypeMismatchError("datatype", str(got), n.arg.loc)
-            if len(_c(Data, self.globals[got.name.id]).ctors):
-                raise TypeMismatchError("empty datatype", str(got), n.arg.loc)
+            data = _c(Data, self.globals[got.name.id])
+            for c in data.ctors:
+                self._exhaust(n.arg.loc, c, data, got)
             return ir.Nomatch(), self._insert_hole(n.loc, False, ir.Type())
         if isinstance(n, Match):
             arg, arg_ty = self.infer(n.arg)

@@ -36,6 +36,28 @@ inductive Vec (A: Type) (n: N) where
 open Vec
 ```
 
+The typechecker knows if any case is impossible (i.e. dependent pattern matching):
+
+```lean
+def v0: Vec N Z := Nil
+
+example :=
+  match v0 with
+  | Nil => Z
+  /- Cons is impossible, leaving it here yields errors. -/
+```
+
+So a bottom type eliminator is trivial via DPM:
+
+```lean
+inductive Weird (n: N) where
+| MkWeird (n := Z)
+open Weird
+
+/- Impossible to construct a term for type `Weird (S Z)`. -/
+example {A: Type} (x: Weird (S Z)): A := nomatch x
+```
+
 ## License
 
 MIT

@@ -271,7 +271,7 @@ class Converter:
                 return x.id == y.id and self._args(xs, ys)
             case Ctor(t, x, xs), Ctor(u, y, ys):
                 return t.id == u.id and x.id == y.id and self._args(xs, ys)
-            case (Type(), Type()) | (Nomatch(), Nomatch()):
+            case Type(), Type():
                 return True
 
         # FIXME: Following cases not seen in tests yet:

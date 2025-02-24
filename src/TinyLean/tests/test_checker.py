@@ -369,29 +369,53 @@ class TestTypeChecker(TestCase):
         self.assertEqual(19, loc)
 
     def test_check_program_nomatch_non_empty_failed(self):
-        with self.assertRaises(ast.TypeMismatchError) as e:
+        with self.assertRaises(ast.CaseMissError) as e:
             ast.check_string(
                 """
                 inductive A where | AA open A
                 example := nomatch AA
                 """
             )
-        want, got, loc = e.exception.args
-        self.assertEqual("empty datatype", str(want))
-        self.assertEqual("A", str(got))
+        name, loc = e.exception.args
+        self.assertEqual("AA", name)
         self.assertEqual(82, loc)
 
-    def test_check_program_nomatch_eq(self):
+    def test_check_program_nomatch_dpm(self):
         ast.check_string(
             """
-            def Eq {T: Type} (a: T) (b: T): Type := (p: (v: T) -> Type) -> (pa: p a) -> p b
-            def refl {T: Type} (a: T): Eq a a := fun p pa => pa
-            inductive Bottom where open Bottom
-            def a (x: Bottom): Type := nomatch x
-            def b (x: Bottom): Type := nomatch x
-            example (x: Bottom): Eq (a x) (b x) := refl (a x)
+            inductive N where
+            | Z
+            | S (n: N)
+            open N
+    
+            inductive T (n: N) where
+            | MkT (n := Z)
+            open T
+    
+            example (x: T (S Z)): Type := nomatch x
             """
         )
+
+    def test_check_program_nomatch_eq_failed(self):
+        text = """
+        def Eq {T: Type} (a: T) (b: T): Type := (p: (v: T) -> Type) -> (pa: p a) -> p b
+        def refl {T: Type} (a: T): Eq a a := fun p pa => pa
+        inductive Bottom where open Bottom
+        def a (x: Bottom): Type := nomatch x
+        def b (x: Bottom): Type := nomatch x
+        /- (a x) and (b x) should not be the same thing, apparently. -/
+        example (x: Bottom): Eq (a x) (b x) := refl (a x)
+        """
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string(text)
+        want, got, loc = e.exception.args
+        self.assertEqual(
+            "(p: (v: Type) → Type) → (pa: (p nomatch)) → (p nomatch)", str(want)
+        )
+        self.assertEqual(
+            "(p: (v: Type) → Type) → (pa: (p nomatch)) → (p nomatch)", str(got)
+        )
+        self.assertEqual(text.index("refl (a x)"), loc)
 
     def test_check_program_match(self):
         _, f, e = ast.check_string(
