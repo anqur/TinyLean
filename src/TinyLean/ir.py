@@ -283,7 +283,8 @@ class Converter:
 
     def _solve(self, p: Placeholder, answer: IR):
         h = self.holes[p.id]
-        assert h.answer.is_unsolved()  # FIXME: can be not None here?
+        if not h.answer.is_unsolved():
+            return self.eq(h.answer.value, answer)
         h.answer.value = answer
 
         if isinstance(answer, Ref):

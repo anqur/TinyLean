@@ -571,3 +571,40 @@ class TestTypeChecker(TestCase):
             def g (x: A) := f x /- match expression not inlined yet -/
             """
         )
+
+    def test_check_program_eq(self):
+        ast.check_string(
+            """
+            inductive N where
+            | Z
+            | S (n: N)
+            open N
+
+            inductive Eq {T: Type} (a: T) (b: T) where
+            | Refl (a := b)
+            open Eq
+
+            example: Eq (S Z) (S Z) := Refl (T := N)
+            """
+        )
+
+    def test_check_program_eq_failed(self):
+        text = """
+        inductive N where
+        | Z
+        | S (n: N)
+        open N
+
+        inductive Eq {T: Type} (a: T) (b: T) where
+        | Refl (a := b)
+        open Eq
+
+        example: Eq Z (S Z) := Refl (T := N)
+        """
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string(text)
+        want, got, loc = e.exception.args
+        self.assertEqual("(Eq N N.Z (N.S N.Z))", str(want))
+        got = " ".join(["_" if "?m." in s else s for s in str(got)[1:-1].split()])
+        self.assertEqual("Eq N _ _", got)
+        self.assertEqual(text.index("Refl (T := N)"), loc)
