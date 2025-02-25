@@ -67,10 +67,12 @@ def _can_insert_placeholders(ty: ir.IR):
 
 
 def _with_placeholders(f: Node, f_ty: ir.IR, implicit: str | bool) -> Node | None:
-    if not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit:
+    if not isinstance(f_ty, ir.FnType):
         return None
 
     if isinstance(implicit, bool):
+        if not f_ty.param.is_implicit:
+            return None
         return _call_placeholder(f) if not implicit else None
 
     pending = 0
