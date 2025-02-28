@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "TinyLean"
-version = "0.5.0"
+version = "0.6.0"
 description = "Tiny theorem prover with syntax like Lean 4"
 readme = ".github/README.md"
 requires-python = ">=3.12"
