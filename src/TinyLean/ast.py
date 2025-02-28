@@ -3,7 +3,7 @@ from itertools import chain
 from dataclasses import dataclass, field
 from typing import OrderedDict, cast as _c
 
-from . import Name, Param, Decl, ir, grammar as _g, fresh, Def, Example, Ctor, Data
+from . import Name, Param, Decl, ir, grammar as _g, fresh, Def, Example, Ctor, Data, Sig
 
 
 @dataclass(frozen=True)
@@ -60,43 +60,6 @@ class Case(Node):
 class Match(Node):
     arg: Node
     cases: list[Case]
-
-
-def _can_insert_placeholders(ty: ir.IR):
-    return not isinstance(ty, ir.FnType) or not ty.param.is_implicit
-
-
-def _with_placeholders(f: Node, f_ty: ir.IR, implicit: str | bool) -> Node | None:
-    if not isinstance(f_ty, ir.FnType):
-        return None
-
-    if isinstance(implicit, bool):
-        if not f_ty.param.is_implicit:
-            return None
-        return _call_placeholder(f) if not implicit else None
-
-    pending = 0
-    while True:
-        # FIXME: Would fail with `{a: Type} -> Type`?
-        assert isinstance(f_ty, ir.FnType)
-
-        if not f_ty.param.is_implicit:
-            raise UndefinedVariableError(implicit, f.loc)
-        if f_ty.param.name.text == implicit:
-            break
-        pending += 1
-        f_ty = f_ty.ret
-
-    if not pending:
-        return None
-
-    for _ in range(pending):
-        f = _call_placeholder(f)
-    return f
-
-
-def _call_placeholder(f: Node):
-    return Call(f.loc, f, Placeholder(f.loc, False), True)
 
 
 _g.name.add_parse_action(lambda r: Name(r[0][0]))
@@ -159,6 +122,9 @@ class NameResolver:
     def _decl(self, decl: Decl) -> Decl:
         self.locals.clear()
 
+        if isinstance(decl, Def) or isinstance(decl, Data):
+            self._insert_global(decl.loc, decl.name)
+
         if isinstance(decl, Def) or isinstance(decl, Example):
             return self._def_or_example(decl)
 
@@ -174,12 +140,9 @@ class NameResolver:
 
         if isinstance(d, Example):
             return Example(d.loc, params, ret, body)
-
-        self._insert_global(d.loc, d.name)
         return Def(d.loc, d.name, params, ret, body)
 
     def _data(self, d: Data[Node]):
-        self._insert_global(d.loc, d.name)
         params = self._params(d.params)
         ctors = [self._ctor(c, d.name) for c in d.ctors]
         assert len(self.locals) == len(params)
@@ -273,6 +236,7 @@ class TypeChecker:
     globals: dict[int, Decl] = field(default_factory=dict)
     locals: dict[int, Param[ir.IR]] = field(default_factory=dict)
     holes: OrderedDict[int, ir.Hole] = field(default_factory=OrderedDict)
+    recur_ids: set[int] = field(default_factory=set)
 
     def __ror__(self, ds: list[Decl]):
         ret = [self._run(d) for d in ds]
@@ -293,14 +257,17 @@ class TypeChecker:
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         params = self._params(d.params)
         ret = self.check(d.ret, ir.Type())
+
+        if isinstance(d, Def):
+            self.globals[d.name.id] = Sig(d.loc, d.name, params, ret)
         body = self.check(d.body, ret)
 
         if isinstance(d, Example):
             return Example(d.loc, params, ret, body)
 
-        ret = Def(d.loc, d.name, params, ret, body)
-        self.globals[d.name.id] = ret
-        return ret
+        checked = Def(d.loc, d.name, params, ret, body)
+        self.globals[d.name.id] = checked
+        return checked
 
     def _data(self, d: Data[Node]):
         params = self._params(d.params)
@@ -349,7 +316,7 @@ class TypeChecker:
                 assert len(self.holes) == holes_len
                 val, got = self.infer(new_f)
 
-        if not ir.Converter(self.holes).eq(got, want):
+        if not self._eq(got, want):
             raise TypeMismatchError(str(want), str(got), n.loc)
 
         return val
@@ -361,6 +328,9 @@ class TypeChecker:
             d = self.globals[n.name.id]
             if isinstance(d, Def):
                 return ir.from_def(d)
+            if isinstance(d, Sig):
+                self.recur_ids.add(d.name.id)
+                return ir.from_sig(d)
             if isinstance(d, Data):
                 return ir.from_data(d)
             assert isinstance(d, Ctor)
@@ -413,7 +383,7 @@ class TypeChecker:
                     raise UnknownCaseError(data.name.text, c.ctor.name.text, c.loc)
                 holes_len = len(self.holes)
                 c_ty = self._ctor_return_type(c.loc, ctor, data)
-                if not ir.Converter(self.holes).eq(c_ty, arg_ty):
+                if not self._eq(c_ty, arg_ty):
                     raise TypeMismatchError(str(arg_ty), str(c_ty), c.loc)
                 [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
                 if ctor.name.id in cases:
@@ -432,8 +402,14 @@ class TypeChecker:
         assert isinstance(n, Type)
         return ir.Type(), ir.Type()
 
+    def _recurs(self):
+        return _c(dict[int, Def[ir.IR]], {i: self.globals[i] for i in self.recur_ids})
+
     def _inliner(self):
-        return ir.Inliner(self.holes)
+        return ir.Inliner(self.holes, _c(dict[int, Def[ir.IR]], self._recurs()))
+
+    def _eq(self, got: ir.IR, want: ir.IR):
+        return ir.Converter(self.holes, self._recurs()).eq(got, want)
 
     def _check_with(self, n: Node, typ: ir.IR, *ps: Param[ir.IR]):
         self.locals.update({p.name.id: p for p in ps})
@@ -466,9 +442,46 @@ class TypeChecker:
 
     def _exhaust(self, loc: int, c: Ctor[ir.IR], d: Data[ir.IR], want: ir.IR):
         holes_len = len(self.holes)
-        if ir.Converter(self.holes).eq(self._ctor_return_type(loc, c, d), want):
+        if self._eq(self._ctor_return_type(loc, c, d), want):
             raise CaseMissError(c.name.text, loc)
         [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
+
+
+def _can_insert_placeholders(ty: ir.IR):
+    return not isinstance(ty, ir.FnType) or not ty.param.is_implicit
+
+
+def _with_placeholders(f: Node, f_ty: ir.IR, implicit: str | bool) -> Node | None:
+    if not isinstance(f_ty, ir.FnType):
+        return None
+
+    if isinstance(implicit, bool):
+        if not f_ty.param.is_implicit:
+            return None
+        return _call_placeholder(f) if not implicit else None
+
+    pending = 0
+    while True:
+        # FIXME: Would fail with `{a: Type} -> Type`?
+        assert isinstance(f_ty, ir.FnType)
+
+        if not f_ty.param.is_implicit:
+            raise UndefinedVariableError(implicit, f.loc)
+        if f_ty.param.name.text == implicit:
+            break
+        pending += 1
+        f_ty = f_ty.ret
+
+    if not pending:
+        return None
+
+    for _ in range(pending):
+        f = _call_placeholder(f)
+    return f
+
+
+def _call_placeholder(f: Node):
+    return Call(f.loc, f, Placeholder(f.loc, False), True)
 
 
 def check_string(text: str, is_markdown=False):

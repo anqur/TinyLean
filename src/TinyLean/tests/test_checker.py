@@ -608,3 +608,26 @@ class TestTypeChecker(TestCase):
         got = " ".join(["_" if "?m." in s else s for s in str(got)[1:-1].split()])
         self.assertEqual("Eq N _ _", got)
         self.assertEqual(text.index("Refl (T := N)"), loc)
+
+    def test_check_program_recurse(self):
+        _, add, e = ast.check_string(
+            """
+            inductive N where
+            | Z
+            | S (n: N)
+            open N
+
+            def add (n: N) (m: N): N :=
+              match n with
+              | Z => m
+              | S pred => S (add pred m)
+
+            example := add (S Z) (S Z)
+            """
+        )
+        assert isinstance(add, Def)
+        self.assertEqual(
+            "match n with | Z ↦ m | S (pred: N) ↦ (N.S ((add pred) m))", str(add.body)
+        )
+        assert isinstance(e, Example)
+        self.assertEqual("(N.S (N.S N.Z))", str(e.body))

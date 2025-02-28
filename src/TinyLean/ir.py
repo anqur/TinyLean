@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import reduce as _r
 from typing import Optional, cast as _c, OrderedDict
 
-from . import Name, Param, Def, Data as DataDecl, Ctor as CtorDecl
+from . import Name, Param, Def, Data as DataDecl, Ctor as CtorDecl, Sig, Decl
 
 
 @dataclass(frozen=True)
@@ -110,6 +110,14 @@ class Match(IR):
 
 
 @dataclass(frozen=True)
+class Recur(IR):
+    name: Name
+
+    def __str__(self):
+        return str(self.name)
+
+
+@dataclass(frozen=True)
 class Renamer:
     locals: dict[int, int] = field(default_factory=dict)
 
@@ -135,7 +143,7 @@ class Renamer:
                 for i, c in v.cases.items()
             }
             return Match(arg, cases)
-        assert any(isinstance(v, c) for c in (Type, Placeholder, Nomatch))
+        assert any(isinstance(v, c) for c in (Type, Placeholder, Nomatch, Recur))
         return v
 
     def _param(self, p: Param[IR]):
@@ -153,6 +161,10 @@ def _to(p: list[Param[IR]], v: IR, t=False):
 
 def from_def(d: Def[IR]):
     return _rn(_to(d.params, d.body)), _rn(_to(d.params, d.ret, True))
+
+
+def from_sig(s: Sig[IR]):
+    return Recur(s.name), _rn(_to(s.params, s.ret, True))
 
 
 def from_data(d: DataDecl[IR]):
@@ -191,9 +203,11 @@ class Hole:
     answer: Answer
 
 
-@dataclass(frozen=True)
+@dataclass
 class Inliner:
     holes: OrderedDict[int, Hole]
+    recurs: dict[int, Decl]
+    can_recurse: bool = True
     env: dict[int, IR] = field(default_factory=dict)
 
     def run(self, v: IR) -> IR:
@@ -219,15 +233,24 @@ class Inliner:
             return Data(v.name, [self.run(v) for v in v.args])
         if isinstance(v, Match):
             arg = self.run(v.arg)
+            can_recurse = self.can_recurse
+            self.can_recurse = False
             cases = {
                 i: Case(c.ctor, [self._param(p) for p in c.params], self.run(c.body))
                 for i, c in v.cases.items()
             }
+            self.can_recurse = can_recurse
             if not isinstance(arg, Ctor):
                 return Match(arg, cases)
             c = cases[arg.name.id]
             env = [(x.name, v) for x, v in zip(c.params, arg.args)]
             return self.run_with(c.body, *env)
+        if isinstance(v, Recur):
+            if self.can_recurse:
+                d = self.recurs[v.name.id]
+                if isinstance(d, Def):
+                    return from_def(d)[0]
+            return v
         assert isinstance(v, Type) or isinstance(v, Nomatch)
         return v
 
@@ -251,6 +274,7 @@ class Inliner:
 @dataclass(frozen=True)
 class Converter:
     holes: OrderedDict[int, Hole]
+    recurs: dict[int, Def[IR]]
 
     def eq(self, lhs: IR, rhs: IR):
         match lhs, rhs:
@@ -265,8 +289,8 @@ class Converter:
             case FnType(p, b), FnType(q, c):
                 if not self.eq(p.type, q.type):
                     return False
-                env = (q.name, Ref(p.name))
-                return self.eq(b, Inliner(self.holes).run_with(c, env))
+                env = [(q.name, Ref(p.name))]
+                return self.eq(b, Inliner(self.holes, self.recurs).run_with(c, *env))
             case Data(x, xs), Data(y, ys):
                 return x.id == y.id and self._args(xs, ys)
             case Ctor(t, x, xs), Ctor(u, y, ys):

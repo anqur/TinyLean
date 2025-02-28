@@ -4,16 +4,16 @@ COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 IDENT = unicode_set.identifier()
 
-DEF, EXAMPLE, INDUCTIVE, WHERE, OPEN, TYPE, NOMATCH, MATCH, WITH = map(
+DEF, EXAMPLE, INDUCTIVE, WHERE, OPEN, TYPE, NOMATCH, MATCH, WITH, UNDER = map(
     lambda w: Suppress(Keyword(w)),
-    "def example inductive where open Type nomatch match with".split(),
+    "def example inductive where open Type nomatch match with _".split(),
 )
 
 ASSIGN, ARROW, FUN, TO = map(
     lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split()
 )
 
-LPAREN, RPAREN, LBRACE, RBRACE, COLON, UNDER, BAR = map(Suppress, "(){}:_|")
+LPAREN, RPAREN, LBRACE, RBRACE, COLON, BAR = map(Suppress, "(){}:|")
 INLINE_WHITE = Opt(Suppress(White(" \t\r"))).set_name("inline_whitespace")
 
 forwards = lambda names: map(lambda n: Forward().set_name(n), names.split())

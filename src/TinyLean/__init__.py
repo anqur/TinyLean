@@ -41,6 +41,13 @@ class Def[T](Decl):
 
 
 @dataclass(frozen=True)
+class Sig[T](Decl):
+    name: Name
+    params: list[Param[T]]
+    ret: T
+
+
+@dataclass(frozen=True)
 class Example[T](Decl):
     params: list[Param[T]]
     ret: T
