@@ -349,3 +349,13 @@ class TestParser(TestCase):
         assert isinstance(x.arg, ast.Type)
         self.assertEqual(3, len(x.cases))
         self.assertTrue(x.cases[2].ctor.name.is_unbound())
+
+    def test_parse_constraint_param(self):
+        x = parse(grammar.c_param, "[GAdd Type]")[0]
+        assert isinstance(x, Param)
+        self.assertTrue(x.name.is_unbound())
+        assert isinstance(x.type, ast.Call)
+        assert isinstance(x.type.callee, ast.Ref)
+        self.assertEqual("GAdd", x.type.callee.name.text)
+        assert isinstance(x.type.arg, ast.Type)
+        self.assertTrue(x.is_implicit)

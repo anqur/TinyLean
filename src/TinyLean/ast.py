@@ -69,6 +69,7 @@ _g.ph.add_parse_action(lambda l, r: Placeholder(l, True))
 _g.ref.add_parse_action(lambda l, r: Ref(l, r[0][0]))
 _g.i_param.add_parse_action(lambda r: Param(r[0], r[1], True))
 _g.e_param.add_parse_action(lambda r: Param(r[0], r[1], False))
+_g.c_param.add_parse_action(lambda r: Param(Name("_"), r[0], True))
 _g.fn_type.add_parse_action(lambda l, r: FnType(l, r[0], r[1]))
 _g.fn.add_parse_action(
     lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])

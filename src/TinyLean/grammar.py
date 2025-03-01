@@ -13,7 +13,9 @@ ASSIGN, ARROW, FUN, TO = map(
     lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split()
 )
 
-LPAREN, RPAREN, LBRACE, RBRACE, COLON, BAR = map(Suppress, "(){}:|")
+LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET, COLON, BAR = map(
+    Suppress, "(){}[]:|"
+)
 INLINE_WHITE = Opt(Suppress(White(" \t\r"))).set_name("inline_whitespace")
 
 forwards = lambda names: map(lambda n: Forward().set_name(n), names.split())
@@ -28,6 +30,7 @@ expr <<= fn_type | fn | match | nomatch | call | p_expr | type_ | ph | ref
 name = Group(IDENT).set_name("name")
 i_param = (LBRACE + name + COLON + expr + RBRACE).set_name("implicit_param")
 e_param = (LPAREN + name + COLON + expr + RPAREN).set_name("explicit_param")
+c_param = (LBRACKET + expr + RBRACKET).set_name("constraint_param")
 fn_type <<= (i_param | e_param) + ARROW + expr
 fn <<= FUN + Group(OneOrMore(name)) + TO + expr
 match <<= MATCH + (type_ | ref | p_expr) + WITH + Group(OneOrMore(case))
