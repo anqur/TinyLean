@@ -31,7 +31,8 @@ name = Group(IDENT).set_name("name")
 i_param = (LBRACE + name + COLON + expr + RBRACE).set_name("implicit_param")
 e_param = (LPAREN + name + COLON + expr + RPAREN).set_name("explicit_param")
 c_param = (LBRACKET + expr + RBRACKET).set_name("constraint_param")
-fn_type <<= (i_param | e_param) + ARROW + expr
+param = (i_param | e_param | c_param).set_name("param")
+fn_type <<= param + ARROW + expr
 fn <<= FUN + Group(OneOrMore(name)) + TO + expr
 match <<= MATCH + (type_ | ref | p_expr) + WITH + Group(OneOrMore(case))
 case <<= BAR + ref + Group(ZeroOrMore(name)) + TO + expr
@@ -46,13 +47,11 @@ ph <<= Group(UNDER)
 ref <<= Group(name)
 
 return_type = Opt(COLON + expr)
-params = Group(ZeroOrMore(i_param | e_param))
+params = Group(ZeroOrMore(param))
 definition = (DEF + ref + params + return_type + ASSIGN + expr).set_name("definition")
 example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
 type_arg = (LPAREN + ref + ASSIGN + expr + RPAREN).set_name("type_arg")
-ctor = (
-    BAR + ref + Group(ZeroOrMore(i_param | e_param)) + Group(ZeroOrMore(type_arg))
-).set_name("constructor")
+ctor = (BAR + ref + params + Group(ZeroOrMore(type_arg))).set_name("constructor")
 data = (
     INDUCTIVE + ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT
 ).set_name("datatype")
