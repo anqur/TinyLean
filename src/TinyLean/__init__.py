@@ -67,3 +67,16 @@ class Data[T](Decl):
     name: Name
     params: list[Param[T]]
     ctors: list[Ctor[T]]
+
+
+@dataclass(frozen=True)
+class Field[T](Decl):
+    name: Name
+    type: T
+
+
+@dataclass(frozen=True)
+class Class[T](Decl):
+    name: Name
+    params: list[Param[T]]
+    fields: list[Field[T]]

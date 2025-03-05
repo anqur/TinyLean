@@ -3,7 +3,21 @@ from itertools import chain
 from dataclasses import dataclass, field
 from typing import OrderedDict, cast as _c
 
-from . import Name, Param, Decl, ir, grammar as _g, fresh, Def, Example, Ctor, Data, Sig
+from . import (
+    Name,
+    Param,
+    Decl,
+    ir,
+    grammar as _g,
+    fresh,
+    Def,
+    Example,
+    Ctor,
+    Data,
+    Sig,
+    Field,
+    Class,
+)
 
 
 @dataclass(frozen=True)
@@ -94,6 +108,10 @@ _g.ctor.add_parse_action(lambda r: Ctor(r[0].loc, r[0].name, list(r[1]), list(r[
 _g.data.add_condition(
     lambda r: r[0].name.text == r[3], message="open and datatype name mismatch"
 ).add_parse_action(lambda r: Data(r[0].loc, r[0].name, list(r[1]), list(r[2])))
+_g.field.add_parse_action(lambda l, r: Field(l, r[0], r[1]))
+_g.class_.add_condition(
+    lambda r: r[0].name.text == r[3], message="open and class name mismatch"
+).add_parse_action(lambda r: Class(r[0].loc, r[0].name, list(r[1]), list(r[2])))
 
 
 @dataclass(frozen=True)

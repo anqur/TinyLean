@@ -3,7 +3,7 @@ from unittest import TestCase
 from pyparsing import ParseException
 
 from . import parse
-from .. import ast, Name, grammar, Param, Decl, Def, Example, Data, Ctor
+from .. import ast, Name, grammar, Param, Decl, Def, Example, Data, Ctor, Class
 
 
 class TestParser(TestCase):
@@ -359,3 +359,41 @@ class TestParser(TestCase):
         self.assertEqual("GAdd", x.type.callee.name.text)
         assert isinstance(x.type.arg, ast.Type)
         self.assertTrue(x.is_implicit)
+
+    def test_parse_class_empty(self):
+        x = parse(
+            grammar.class_,
+            """
+            class A where
+            open A
+            """,
+        )[0]
+        assert isinstance(x, Class)
+        self.assertEqual("A", x.name.text)
+        self.assertEqual(0, len(x.params))
+        self.assertEqual(0, len(x.fields))
+
+    def test_parse_class_empty_failed(self):
+        with self.assertRaises(ParseException) as e:
+            parse(grammar.class_, "class A where open B")
+        self.assertIn("open and class name mismatch", str(e.exception))
+
+    def test_parse_class_fields(self):
+        x = parse(
+            grammar.class_,
+            """
+            class Op {T: Type} where
+                add: (a: T) -> (b: T) -> T
+                mul: (a: T) -> (b: T) -> T
+            open Op
+            """,
+        )[0]
+        assert isinstance(x, Class)
+        self.assertEqual(1, len(x.params))
+        self.assertEqual("T", x.params[0].name.text)
+        self.assertEqual("Op", x.name.text)
+        self.assertEqual(2, len(x.fields))
+        self.assertEqual("add", x.fields[0].name.text)
+        assert isinstance(x.fields[0].type, ast.FnType)
+        self.assertEqual("mul", x.fields[1].name.text)
+        assert isinstance(x.fields[1].type, ast.FnType)

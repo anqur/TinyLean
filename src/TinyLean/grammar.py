@@ -4,17 +4,17 @@ COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 IDENT = unicode_set.identifier()
 
-DEF, EXAMPLE, INDUCTIVE, WHERE, OPEN, TYPE, NOMATCH, MATCH, WITH, UNDER = map(
+DEF, EXAMPLE, IND, WHERE, OPEN, TYPE, NOMATCH, MATCH, WITH, UNDER, CLASS, INST = map(
     lambda w: Suppress(Keyword(w)),
-    "def example inductive where open Type nomatch match with _".split(),
+    "def example inductive where open Type nomatch match with _ class instance".split(),
 )
 
 ASSIGN, ARROW, FUN, TO = map(
     lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split()
 )
 
-LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET, COLON, BAR = map(
-    Suppress, "(){}[]:|"
+LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET, COLON, BAR, NEWLINE = map(
+    Suppress, "(){}[]:|\n"
 )
 INLINE_WHITE = Opt(Suppress(White(" \t\r"))).set_name("inline_whitespace")
 
@@ -52,9 +52,13 @@ definition = (DEF + ref + params + return_type + ASSIGN + expr).set_name("defini
 example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
 type_arg = (LPAREN + ref + ASSIGN + expr + RPAREN).set_name("type_arg")
 ctor = (BAR + ref + params + Group(ZeroOrMore(type_arg))).set_name("constructor")
-data = (
-    INDUCTIVE + ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT
-).set_name("datatype")
+data = (IND + ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT).set_name(
+    "datatype"
+)
+field = (name + COLON + expr).set_name("field")
+class_ = (
+    CLASS + ref + params + WHERE + Group(ZeroOrMore(field)) + OPEN + IDENT
+).set_name("class")
 declaration = (definition | example | data).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
