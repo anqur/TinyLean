@@ -80,3 +80,9 @@ class Class[T](Decl):
     name: Name
     params: list[Param[T]]
     fields: list[Field[T]]
+
+
+@dataclass(frozen=True)
+class Instance[T](Decl):
+    type: T
+    fields: list[tuple[T, T]]

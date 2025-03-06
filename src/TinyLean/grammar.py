@@ -55,11 +55,13 @@ ctor = (BAR + ref + params + Group(ZeroOrMore(type_arg))).set_name("constructor"
 data = (IND + ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT).set_name(
     "datatype"
 )
-field = (name + COLON + expr).set_name("field")
+c_field = (name + COLON + expr).set_name("class_field")
 class_ = (
-    CLASS + ref + params + WHERE + Group(ZeroOrMore(field)) + OPEN + IDENT
+    CLASS + ref + params + WHERE + Group(ZeroOrMore(c_field)) + OPEN + IDENT
 ).set_name("class")
-declaration = (definition | example | data).set_name("declaration")
+i_field = (ref + ASSIGN + expr).set_name("instance_field")
+inst = (INST + COLON + expr + WHERE + Group(ZeroOrMore(i_field))).set_name("instance")
+declaration = (definition | example | data | class_).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
 

@@ -3,7 +3,19 @@ from unittest import TestCase
 from pyparsing import ParseException
 
 from . import parse
-from .. import ast, Name, grammar, Param, Decl, Def, Example, Data, Ctor, Class
+from .. import (
+    ast,
+    Name,
+    grammar,
+    Param,
+    Decl,
+    Def,
+    Example,
+    Data,
+    Ctor,
+    Class,
+    Instance,
+)
 
 
 class TestParser(TestCase):
@@ -397,3 +409,31 @@ class TestParser(TestCase):
         assert isinstance(x.fields[0].type, ast.FnType)
         self.assertEqual("mul", x.fields[1].name.text)
         assert isinstance(x.fields[1].type, ast.FnType)
+
+    def test_parse_instance_empty(self):
+        x = parse(grammar.inst, "instance : Monad A\nwhere")[0]
+        assert isinstance(x, Instance)
+        assert isinstance(x.type, ast.Call)
+        assert isinstance(x.type.callee, ast.Ref)
+        self.assertEqual("Monad", x.type.callee.name.text)
+        assert isinstance(x.type.arg, ast.Ref)
+        self.assertEqual("A", x.type.arg.name.text)
+        self.assertEqual(0, len(x.fields))
+
+    def test_parse_instance_fields(self):
+        x = parse(
+            grammar.inst,
+            """
+            instance : AddOp T
+            where
+                add := (a: T) -> (b: T) -> T
+            """,
+        )[0]
+        assert isinstance(x, Instance)
+        self.assertEqual(1, len(x.fields))
+        f = x.fields[0]
+        assert isinstance(f, tuple)
+        n, v = f
+        assert isinstance(n, ast.Ref)
+        self.assertEqual("add", n.name.text)
+        assert isinstance(v, ast.FnType)

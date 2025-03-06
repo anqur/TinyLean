@@ -17,6 +17,7 @@ from . import (
     Sig,
     Field,
     Class,
+    Instance,
 )
 
 
@@ -108,10 +109,12 @@ _g.ctor.add_parse_action(lambda r: Ctor(r[0].loc, r[0].name, list(r[1]), list(r[
 _g.data.add_condition(
     lambda r: r[0].name.text == r[3], message="open and datatype name mismatch"
 ).add_parse_action(lambda r: Data(r[0].loc, r[0].name, list(r[1]), list(r[2])))
-_g.field.add_parse_action(lambda l, r: Field(l, r[0], r[1]))
+_g.c_field.add_parse_action(lambda l, r: Field(l, r[0], r[1]))
 _g.class_.add_condition(
     lambda r: r[0].name.text == r[3], message="open and class name mismatch"
 ).add_parse_action(lambda r: Class(r[0].loc, r[0].name, list(r[1]), list(r[2])))
+_g.i_field.add_parse_action(lambda r: (r[0], r[1]))
+_g.inst.add_parse_action(lambda l, r: Instance(l, r[0], list(r[1])))
 
 
 @dataclass(frozen=True)
