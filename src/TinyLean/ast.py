@@ -150,8 +150,11 @@ class NameResolver:
         if isinstance(decl, Def) or isinstance(decl, Example):
             return self._def_or_example(decl)
 
-        assert isinstance(decl, Data)
-        return self._data(decl)
+        if isinstance(decl, Data):
+            return self._data(decl)
+
+        assert isinstance(decl, Class)
+        return self._class(decl)
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         params = self._params(d.params)
@@ -177,6 +180,15 @@ class NameResolver:
             del self.locals[p.name.text]
         self._insert_global(c.loc, c.name)
         return Ctor(c.loc, c.name, params, ty_args, ty_name)
+
+    def _class(self, c: Class[Node]):
+        params = self._params(c.params)
+        fields = []
+        for f in c.fields:
+            self._insert_global(f.loc, f.name)
+            fields.append(Field(f.loc, f.name, self.expr(f.type)))
+        self._insert_global(c.loc, c.name)
+        return Class(c.loc, c.name, params, fields)
 
     def _params(self, params: list[Param[Node]]):
         ret = []

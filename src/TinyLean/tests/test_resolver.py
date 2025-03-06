@@ -174,3 +174,13 @@ Footer.
         name, loc = e.exception.args
         self.assertEqual("b", name)
         self.assertEqual(137, loc)
+
+    def test_resolve_class(self):
+        resolve(
+            """
+            class A (T: Type) where
+                a: T
+            open A
+            example := a
+            """
+        )
