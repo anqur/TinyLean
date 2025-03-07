@@ -61,7 +61,7 @@ class_ = (
 ).set_name("class")
 i_field = (ref + ASSIGN + expr).set_name("instance_field")
 inst = (INST + COLON + expr + WHERE + Group(ZeroOrMore(i_field))).set_name("instance")
-declaration = (definition | example | data | class_).set_name("declaration")
+declaration = (definition | example | data | class_ | inst).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
 

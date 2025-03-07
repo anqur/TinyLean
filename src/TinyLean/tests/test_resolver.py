@@ -184,3 +184,18 @@ Footer.
             example := a
             """
         )
+
+    def test_resolve_instance(self):
+        resolve(
+            """
+            inductive Void where open Void
+
+            class A (T: Type) where
+                a: T
+            open A
+
+            instance: A Void
+            where
+                a := Type
+            """
+        )
