@@ -73,6 +73,7 @@ class Data[T](Decl):
 class Field[T](Decl):
     name: Name
     type: T
+    cls_name: Name | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,7 @@ class Class[T](Decl):
     name: Name
     params: list[Param[T]]
     fields: list[Field[T]]
+    instances: list[Name] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

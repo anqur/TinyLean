@@ -2,7 +2,18 @@ from dataclasses import dataclass, field
 from functools import reduce as _r
 from typing import Optional, cast as _c, OrderedDict
 
-from . import Name, Param, Def, Data as DataDecl, Ctor as CtorDecl, Sig, Decl
+from . import (
+    Name,
+    Param,
+    Def,
+    Data as DataDecl,
+    Ctor as CtorDecl,
+    Sig,
+    Decl,
+    Class as ClassDecl,
+    Field,
+    Instance,
+)
 
 
 @dataclass(frozen=True)
@@ -118,6 +129,16 @@ class Recur(IR):
 
 
 @dataclass(frozen=True)
+class Class(IR):
+    name: Name
+    args: list[IR]
+
+    def __str__(self):
+        s = " ".join(str(x) for x in [self.name, *self.args])
+        return f"({s})" if len(self.args) else s
+
+
+@dataclass(frozen=True)
 class Renamer:
     locals: dict[int, int] = field(default_factory=dict)
 
@@ -133,9 +154,9 @@ class Renamer:
         if isinstance(v, FnType):
             return FnType(self._param(v.param), self.run(v.ret))
         if isinstance(v, Data):
-            return Data(v.name, [self.run(v) for v in v.args])
+            return Data(v.name, [self.run(x) for x in v.args])
         if isinstance(v, Ctor):
-            return Ctor(v.ty_name, v.name, [self.run(v) for v in v.args])
+            return Ctor(v.ty_name, v.name, [self.run(x) for x in v.args])
         if isinstance(v, Match):
             arg = self.run(v.arg)
             cases = {
@@ -143,6 +164,8 @@ class Renamer:
                 for i, c in v.cases.items()
             }
             return Match(arg, cases)
+        if isinstance(v, Class):
+            return Class(v.name, [self.run(x) for x in v.args])
         assert any(isinstance(v, c) for c in (Type, Placeholder, Nomatch, Recur))
         return v
 
@@ -186,6 +209,17 @@ def from_ctor(c: CtorDecl[IR], d: DataDecl[IR]):
     return _rn(v), _rn(ty)
 
 
+def from_class(c: ClassDecl[IR]):
+    args = [Ref(p.name) for p in c.params]
+    return _rn(_to(c.params, Class(c.name, args))), _rn(_to(c.params, Type(), True))
+
+
+def from_field(f: Field[IR], c: ClassDecl[IR]):
+    args = [Ref(p.name) for p in c.params]
+    params = [*c.params, Param(Name("_"), Class(c.name, args), True)]
+    return _rn(_to(params, f.type)), _rn(_to(params, Type(), True))
+
+
 @dataclass
 class Answer:
     type: IR
@@ -201,6 +235,9 @@ class Hole:
     is_user: bool
     locals: dict[int, Param[IR]]
     answer: Answer
+
+
+class NoInstanceError(Exception): ...
 
 
 @dataclass
@@ -252,6 +289,23 @@ class Inliner:
                     return from_def(d)[0]
                 assert isinstance(d, Sig)
             return v
+        if isinstance(v, Class):
+            args = [self.run(t) for t in v.args]
+            cls = Class(v.name, args)
+            if any(isinstance(t, Ref) for t in args):
+                return cls
+            c = self.globals[v.name.id]
+            assert isinstance(c, ClassDecl)
+            for n in c.instances:  # pragma: no cover
+                # TODO: Testing.
+                i = self.globals[n.id]
+                assert isinstance(i, Instance)
+                holes_len = len(self.holes)
+                ok = Converter(self.holes, self.globals).eq(cls, i.type)
+                [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
+                if ok:
+                    return cls
+            raise NoInstanceError(str(cls), c.loc)
         assert isinstance(v, Type) or isinstance(v, Nomatch)
         return v
 
@@ -298,6 +352,9 @@ class Converter:
                 return t.id == u.id and x.id == y.id and self._args(xs, ys)
             case Type(), Type():
                 return True
+            case Class(x, xs), Class(y, ys):  # pragma: no cover
+                # TODO: Testing.
+                return x.id == y.id and self._args(xs, ys)
 
         # FIXME: Following cases not seen in tests yet:
         assert not (isinstance(lhs, Fn) and isinstance(rhs, Fn))

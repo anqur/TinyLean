@@ -163,9 +163,7 @@ class NameResolver:
         params = self._params(d.params)
         ret = self.expr(d.ret)
         body = self.expr(d.body)
-
-        assert len(self.locals) == len(params)
-
+        assert len(self.locals) <= len(params)
         if isinstance(d, Example):
             return Example(d.loc, params, ret, body)
         return Def(d.loc, d.name, params, ret, body)
@@ -173,7 +171,7 @@ class NameResolver:
     def _data(self, d: Data[Node]):
         params = self._params(d.params)
         ctors = [self._ctor(c, d.name) for c in d.ctors]
-        assert len(self.locals) == len(params)
+        assert len(self.locals) <= len(params)
         return Data(d.loc, d.name, params, ctors)
 
     def _ctor(self, c: Ctor[Node], ty_name: Name):
@@ -293,8 +291,10 @@ class TypeChecker:
         self.locals.clear()
         if isinstance(decl, Def) or isinstance(decl, Example):
             return self._def_or_example(decl)
-        assert isinstance(decl, Data)
-        return self._data(decl)
+        if isinstance(decl, Data):
+            return self._data(decl)
+        assert isinstance(decl, Class)
+        return self._class(decl)
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         params = self._params(d.params)
@@ -329,6 +329,17 @@ class TypeChecker:
         ctor = Ctor(c.loc, c.name, params, ty_args, c.ty_name)
         self.globals[c.name.id] = ctor
         return ctor
+
+    def _class(self, c: Class[Node]):
+        params = self._params(c.params)
+        fs = [
+            Field(f.loc, f.name, self.check(f.type, ir.Type()), c.name)
+            for f in c.fields
+        ]
+        self.globals.update({f.name.id: f for f in fs})
+        cls = Class(c.loc, c.name, params, fs)
+        self.globals[c.name.id] = cls
+        return cls
 
     def _params(self, params: list[Param[Node]]):
         ret = []
@@ -375,10 +386,16 @@ class TypeChecker:
                 return ir.from_sig(d)
             if isinstance(d, Data):
                 return ir.from_data(d)
-            assert isinstance(d, Ctor)
-            data_decl = self.globals[d.ty_name.id]
-            assert isinstance(data_decl, Data)
-            return ir.from_ctor(d, data_decl)
+            if isinstance(d, Ctor):
+                data_decl = self.globals[d.ty_name.id]
+                assert isinstance(data_decl, Data)
+                return ir.from_ctor(d, data_decl)
+            if isinstance(d, Class):
+                return ir.from_class(d)
+            assert isinstance(d, Field)
+            cls_decl = self.globals[d.cls_name.id]
+            assert isinstance(cls_decl, Class)
+            return ir.from_field(d, cls_decl)
         if isinstance(n, FnType):
             p_typ = self.check(n.param.type, ir.Type())
             inferred_p = Param(n.param.name, p_typ, n.param.is_implicit)

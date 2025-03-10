@@ -67,8 +67,8 @@ class TestTypeChecker(TestCase):
             ast.check_string("def id (a: Type): a := Type")
         want, got, loc = e.exception.args
         self.assertEqual(23, loc)
-        self.assertEqual("a", str(want))
-        self.assertEqual("Type", str(got))
+        self.assertEqual("a", want)
+        self.assertEqual("Type", got)
 
     def test_check_program_call(self):
         ast.check_string(
@@ -89,8 +89,8 @@ class TestTypeChecker(TestCase):
             )
         want, got, loc = e.exception.args
         self.assertEqual(87, loc)
-        self.assertEqual("Type", str(want))
-        self.assertEqual("(a: Type) → Type", str(got))
+        self.assertEqual("Type", want)
+        self.assertEqual("(a: Type) → Type", got)
 
     def test_check_program_placeholder(self):
         ast.check_string(
@@ -219,8 +219,8 @@ class TestTypeChecker(TestCase):
                 """
             )
         want, got, loc = e.exception.args
-        self.assertEqual("Type", str(want))
-        self.assertEqual("N", str(got))
+        self.assertEqual("Type", want)
+        self.assertEqual("N", got)
         self.assertEqual(139, loc)
 
     def test_check_program_datatype_maybe(self):
@@ -297,8 +297,8 @@ class TestTypeChecker(TestCase):
                 """
             )
         want, got, _ = e.exception.args
-        self.assertEqual("(Maybe B)", str(want))
-        self.assertEqual("(Maybe A)", str(got))
+        self.assertEqual("(Maybe B)", want)
+        self.assertEqual("(Maybe A)", got)
 
     def test_check_program_datatype_vec(self):
         x = ast.check_string(
@@ -364,8 +364,8 @@ class TestTypeChecker(TestCase):
         with self.assertRaises(ast.TypeMismatchError) as e:
             ast.check_string("example := nomatch Type")
         want, got, loc = e.exception.args
-        self.assertEqual("datatype", str(want))
-        self.assertEqual("Type", str(got))
+        self.assertEqual("datatype", want)
+        self.assertEqual("Type", got)
         self.assertEqual(19, loc)
 
     def test_check_program_nomatch_non_empty_failed(self):
@@ -387,11 +387,11 @@ class TestTypeChecker(TestCase):
             | Z
             | S (n: N)
             open N
-    
+
             inductive T (n: N) where
             | MkT (n := Z)
             open T
-    
+
             example (x: T (S Z)): Type := nomatch x
             """
         )
@@ -410,11 +410,9 @@ class TestTypeChecker(TestCase):
             ast.check_string(text)
         want, got, loc = e.exception.args
         self.assertEqual(
-            "(p: (v: Type) → Type) → (pa: (p nomatch)) → (p nomatch)", str(want)
+            "(p: (v: Type) → Type) → (pa: (p nomatch)) → (p nomatch)", want
         )
-        self.assertEqual(
-            "(p: (v: Type) → Type) → (pa: (p nomatch)) → (p nomatch)", str(got)
-        )
+        self.assertEqual("(p: (v: Type) → Type) → (pa: (p nomatch)) → (p nomatch)", got)
         self.assertEqual(text.index("refl (a x)"), loc)
 
     def test_check_program_match(self):
@@ -484,8 +482,8 @@ class TestTypeChecker(TestCase):
         with self.assertRaises(ast.TypeMismatchError) as e:
             ast.check_string(text)
         want, got, loc = e.exception.args
-        self.assertIn("N.Z", str(want))
-        self.assertIn("N.S", str(got))
+        self.assertIn("N.Z", want)
+        self.assertIn("N.S", got)
         self.assertEqual(want_loc, loc)
 
     def test_check_program_match_type_failed(self):
@@ -499,8 +497,8 @@ class TestTypeChecker(TestCase):
                 """
             )
         want, got, loc = e.exception.args
-        self.assertEqual("datatype", str(want))
-        self.assertEqual("Type", str(got))
+        self.assertEqual("datatype", want)
+        self.assertEqual("Type", got)
         self.assertEqual(98, loc)
 
     def test_check_program_match_unknown_case_failed(self):
@@ -515,8 +513,8 @@ class TestTypeChecker(TestCase):
                 """
             )
         want, got, loc = e.exception.args
-        self.assertEqual("A", str(want))
-        self.assertEqual("BB", str(got))
+        self.assertEqual("A", want)
+        self.assertEqual("BB", got)
         self.assertEqual(178, loc)
 
     def test_check_program_match_duplicate_case_failed(self):
@@ -531,7 +529,7 @@ class TestTypeChecker(TestCase):
         with self.assertRaises(ast.DuplicateCaseError) as e:
             ast.check_string(text)
         name, loc = e.exception.args
-        self.assertEqual("AA", str(name))
+        self.assertEqual("AA", name)
         self.assertEqual(text.index("AA => Type"), loc)
 
     def test_check_program_match_param_mismatch_failed(self):
@@ -558,7 +556,7 @@ class TestTypeChecker(TestCase):
         with self.assertRaises(ast.CaseMissError) as e:
             ast.check_string(text)
         name, loc = e.exception.args
-        self.assertEqual("BB", str(name))
+        self.assertEqual("BB", name)
         self.assertEqual(text.index("match x with"), loc)
 
     def test_check_program_match_inline(self):
@@ -604,8 +602,8 @@ class TestTypeChecker(TestCase):
         with self.assertRaises(ast.TypeMismatchError) as e:
             ast.check_string(text)
         want, got, loc = e.exception.args
-        self.assertEqual("(Eq N N.Z (N.S N.Z))", str(want))
-        got = " ".join(["_" if "?m." in s else s for s in str(got)[1:-1].split()])
+        self.assertEqual("(Eq N N.Z (N.S N.Z))", want)
+        got = " ".join(["_" if "?m." in s else s for s in got[1:-1].split()])
         self.assertEqual("Eq N _ _", got)
         self.assertEqual(text.index("Refl (T := N)"), loc)
 
@@ -631,3 +629,33 @@ class TestTypeChecker(TestCase):
         )
         assert isinstance(e, Example)
         self.assertEqual("(N.S (N.S N.Z))", str(e.body))
+
+    def test_check_program_class(self):
+        ast.check_string(
+            """
+            class C where open C
+            example [C] := Type
+            """
+        )
+
+    def test_check_program_class_stuck(self):
+        ast.check_string(
+            """
+            class Default (T: Type) where
+                default: T
+            open Default
+            example (U: Type) [Default U] := default
+            """
+        )
+
+    def test_check_program_class_fail(self):
+        text = """
+        class C where open C
+        def f [C] := Type
+        example := f
+        """
+        with self.assertRaises(ir.NoInstanceError) as e:
+            ast.check_string(text)
+        got, loc = e.exception.args
+        self.assertEqual("C", got)
+        self.assertEqual(text.index("C where"), loc)
