@@ -206,7 +206,7 @@ class Hole:
 @dataclass
 class Inliner:
     holes: OrderedDict[int, Hole]
-    recurs: dict[int, Decl]
+    globals: dict[int, Decl]
     can_recurse: bool = True
     env: dict[int, IR] = field(default_factory=dict)
 
@@ -247,9 +247,10 @@ class Inliner:
             return self.run_with(c.body, *env)
         if isinstance(v, Recur):
             if self.can_recurse:
-                d = self.recurs[v.name.id]
+                d = self.globals[v.name.id]
                 if isinstance(d, Def):
                     return from_def(d)[0]
+                assert isinstance(d, Sig)
             return v
         assert isinstance(v, Type) or isinstance(v, Nomatch)
         return v
@@ -274,7 +275,7 @@ class Inliner:
 @dataclass(frozen=True)
 class Converter:
     holes: OrderedDict[int, Hole]
-    recurs: dict[int, Def[IR]]
+    globals: dict[int, Decl]
 
     def eq(self, lhs: IR, rhs: IR):
         match lhs, rhs:
@@ -290,7 +291,7 @@ class Converter:
                 if not self.eq(p.type, q.type):
                     return False
                 env = [(q.name, Ref(p.name))]
-                return self.eq(b, Inliner(self.holes, self.recurs).run_with(c, *env))
+                return self.eq(b, Inliner(self.holes, self.globals).run_with(c, *env))
             case Data(x, xs), Data(y, ys):
                 return x.id == y.id and self._args(xs, ys)
             case Ctor(t, x, xs), Ctor(u, y, ys):

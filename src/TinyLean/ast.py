@@ -444,14 +444,11 @@ class TypeChecker:
         assert isinstance(n, Type)
         return ir.Type(), ir.Type()
 
-    def _recurs(self):
-        return _c(dict[int, Def[ir.IR]], {i: self.globals[i] for i in self.recur_ids})
-
     def _inliner(self):
-        return ir.Inliner(self.holes, _c(dict[int, Def[ir.IR]], self._recurs()))
+        return ir.Inliner(self.holes, _c(dict[int, Def[ir.IR]], self.globals))
 
     def _eq(self, got: ir.IR, want: ir.IR):
-        return ir.Converter(self.holes, self._recurs()).eq(got, want)
+        return ir.Converter(self.holes, self.globals).eq(got, want)
 
     def _check_with(self, n: Node, typ: ir.IR, *ps: Param[ir.IR]):
         self.locals.update({p.name.id: p for p in ps})
