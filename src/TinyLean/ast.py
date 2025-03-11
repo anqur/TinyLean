@@ -193,7 +193,15 @@ class NameResolver:
 
     def _inst(self, i: Instance[Node]):
         t = self.expr(i.type)
-        fields = list((self.expr(n), self.expr(v)) for n, v in i.fields)
+        fields = []
+        field_ids = set()
+        for n, v in i.fields:
+            n = self.expr(n)
+            assert isinstance(n, Ref)
+            if n.name.id in field_ids:
+                raise DuplicateVariableError(n.name.text, n.loc)
+            field_ids.add(n.name.id)
+            fields.append((n, (self.expr(v))))
         return Instance(i.loc, t, fields)
 
     def _params(self, params: list[Param[Node]]):
@@ -271,6 +279,12 @@ class CaseParamMismatchError(Exception): ...
 class CaseMissError(Exception): ...
 
 
+class FieldMissError(Exception): ...
+
+
+class UnknownFieldError(Exception): ...
+
+
 @dataclass(frozen=True)
 class TypeChecker:
     globals: dict[int, Decl] = field(default_factory=dict)
@@ -281,9 +295,10 @@ class TypeChecker:
     def __ror__(self, ds: list[Decl]):
         ret = [self._run(d) for d in ds]
         for i, h in self.holes.items():
+            ty = self._inliner().run(h.answer.type)
+            _solve_class_answer(h.answer, ty)
             if h.answer.is_unsolved():
                 p = ir.Placeholder(i, h.is_user)
-                ty = self._inliner().run(h.answer.type)
                 raise UnsolvedPlaceholderError(str(p), h.locals, ty, h.loc)
         return ret
 
@@ -293,6 +308,8 @@ class TypeChecker:
             return self._def_or_example(decl)
         if isinstance(decl, Data):
             return self._data(decl)
+        if isinstance(decl, Instance):
+            return self._inst(decl)
         assert isinstance(decl, Class)
         return self._class(decl)
 
@@ -340,6 +357,27 @@ class TypeChecker:
         cls = Class(c.loc, c.name, params, fs)
         self.globals[c.name.id] = cls
         return cls
+
+    def _inst(self, i: Instance[Node]):
+        ty = self.check(i.type, ir.Type())
+        if not isinstance(ty, ir.Class):
+            raise TypeMismatchError("class", str(ty), i.type.loc)
+        c = self.globals[ty.name.id]
+        assert isinstance(c, Class)
+        vals = {_c(Ref, n).name.id: (n, f) for n, f in i.fields}
+        fields = []
+        for f in c.fields:
+            nv = vals.pop(f.name.id, None)
+            if not nv:
+                raise FieldMissError(f.name.text, i.loc)
+            fields.append((ir.Ref(f.name), self.check(nv[1], f.type)))
+        for n, _ in vals.values():
+            assert isinstance(n, Ref)
+            raise UnknownFieldError(n.name.text, n.loc)
+        c.instances.append(i.id)
+        inst = Instance(i.loc, _c(ir.IR, ty), fields, i.id)
+        self.globals[i.id] = inst
+        return inst
 
     def _params(self, params: list[Param[Node]]):
         ret = []
@@ -503,6 +541,13 @@ class TypeChecker:
         [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
 
 
+def _solve_class_answer(answer: ir.Answer, ty: ir.IR):
+    if not isinstance(ty, ir.Class):
+        return
+    assert all(not isinstance(a, ir.Ref) for a in ty.args)
+    answer.value = ir.Ref(ty.name)
+
+
 def _can_insert_placeholders(ty: ir.IR):
     return not isinstance(ty, ir.FnType) or not ty.param.is_implicit
 
@@ -540,5 +585,4 @@ def _call_placeholder(f: Node):
     return Call(f.loc, f, Placeholder(f.loc, False), True)
 
 
-def check_string(text: str, is_markdown=False):
-    return text | Parser(is_markdown) | NameResolver() | TypeChecker()
+check_string = lambda s, md=False: s | Parser(md) | NameResolver() | TypeChecker()

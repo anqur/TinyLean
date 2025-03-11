@@ -3,12 +3,10 @@ from pathlib import Path
 
 from pyparsing import util, exceptions
 
-from . import ast
+from . import ast, ir
 
 
-def fatal(m: str | Exception):
-    print(m)
-    sys.exit(1)
+fatal = lambda m: sys.exit(int(not print(m)))
 
 
 _F = Path(sys.argv[1]) if len(sys.argv) > 1 else None
@@ -53,6 +51,9 @@ def main(file=_F if _F else fatal("usage: tinylean FILE")):
     except ast.CaseMissError as e:
         miss, loc = e.args
         fatal_on(text, loc, f"missing case(s): {miss}")
+    except ir.NoInstanceError as e:
+        name, loc = e.args
+        fatal_on(text, loc, f"no such instance for class '{name}'")
     except RecursionError as e:
         print("Program too complex or oops you just got '⊥'! Please report this issue:")
         raise e

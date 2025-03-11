@@ -215,6 +215,7 @@ def from_class(c: ClassDecl[IR]):
 
 
 def from_field(f: Field[IR], c: ClassDecl[IR]):
+    # FIXME: Should return an `Instance` as value.
     args = [Ref(p.name) for p in c.params]
     params = [*c.params, Param(Name("_"), Class(c.name, args), True)]
     return _rn(_to(params, f.type)), _rn(_to(params, Type(), True))
@@ -296,9 +297,9 @@ class Inliner:
                 return cls
             c = self.globals[v.name.id]
             assert isinstance(c, ClassDecl)
-            for n in c.instances:  # pragma: no cover
+            for inst_id in c.instances:  # pragma: no cover
                 # TODO: Testing.
-                i = self.globals[n.id]
+                i = self.globals[inst_id]
                 assert isinstance(i, Instance)
                 holes_len = len(self.holes)
                 ok = Converter(self.holes, self.globals).eq(cls, i.type)

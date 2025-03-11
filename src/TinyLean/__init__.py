@@ -81,10 +81,11 @@ class Class[T](Decl):
     name: Name
     params: list[Param[T]]
     fields: list[Field[T]]
-    instances: list[Name] = field(default_factory=list)
+    instances: list[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
 class Instance[T](Decl):
     type: T
     fields: list[tuple[T, T]]
+    id: int = field(default_factory=fresh)

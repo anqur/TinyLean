@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from . import resolve_expr
-from .. import ast, Name, Param, ir, Data, Example, Def
+from .. import ast, Name, Param, ir, Data, Example, Def, Class, Instance
 
 check_expr = lambda s, t: ast.TypeChecker().check(resolve_expr(s), t)
 infer_expr = lambda s: ast.TypeChecker().infer(resolve_expr(s))
@@ -648,7 +648,7 @@ class TestTypeChecker(TestCase):
             """
         )
 
-    def test_check_program_class_fail(self):
+    def test_check_program_class_failed(self):
         text = """
         class C where open C
         def f [C] := Type
@@ -659,3 +659,59 @@ class TestTypeChecker(TestCase):
         got, loc = e.exception.args
         self.assertEqual("C", got)
         self.assertEqual(text.index("C where"), loc)
+
+    def test_check_program_instance(self):
+        c, i, _, _ = ast.check_string(
+            """
+            class C where open C
+            instance: C
+            where
+            def f [C] := Type
+            example := f
+            """
+        )
+        assert isinstance(c, Class)
+        assert isinstance(i, Instance)
+        self.assertEqual(c.instances[0], i.id)
+
+    def test_check_program_instance_miss_failed(self):
+        text = """
+        class C where
+            c: Type
+        open C
+        instance: C
+        where
+        """
+        with self.assertRaises(ast.FieldMissError) as e:
+            ast.check_string(text)
+        name, loc = e.exception.args
+        self.assertEqual("c", name)
+        self.assertEqual(text.index("instance: C"), loc)
+
+    def test_check_program_instance_unknown_failed(self):
+        text = """
+        class A where
+            a: Type
+        open A
+        class B where
+            b: Type
+        open B
+        instance: A
+        where
+            a := Type
+            b := Type
+        """
+        with self.assertRaises(ast.UnknownFieldError) as e:
+            ast.check_string(text)
+        name, loc = e.exception.args
+        self.assertEqual("b", name)
+        self.assertEqual(text.index("b :="), loc)
+
+    def test_check_program_instance_mismatch_failed(self):
+        text = "instance: Type\nwhere"
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string(text)
+        want, got, loc = e.exception.args
+        self.assertEqual("class", want)
+        self.assertEqual("Type", got)
+        self.assertEqual(text.index("Type"), loc)

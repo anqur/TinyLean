@@ -199,3 +199,19 @@ Footer.
                 a := Type
             """
         )
+
+    def test_resolve_instance_failed(self):
+        text = """
+        class C where
+            c: Type
+        open C
+        instance: C
+        where
+            c := Type
+            c := Type
+        """
+        with self.assertRaises(ast.DuplicateVariableError) as e:
+            resolve(text)
+        name, loc = e.exception.args
+        self.assertEqual("c", name)
+        self.assertEqual(text.rindex("c :="), loc)
