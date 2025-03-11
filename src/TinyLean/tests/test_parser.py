@@ -437,3 +437,14 @@ class TestParser(TestCase):
         assert isinstance(n, ast.Ref)
         self.assertEqual("add", n.name.text)
         assert isinstance(v, ast.FnType)
+
+    def test_parse_infix_op(self):
+        x = parse(grammar.expr, "x + y")[0]
+        assert isinstance(x, ast.Call)
+        assert isinstance(x.callee, ast.Call)
+        assert isinstance(x.callee.callee, ast.Ref)
+        self.assertEqual("add", x.callee.callee.name.text)
+        assert isinstance(x.callee.arg, ast.Ref)
+        self.assertEqual("x", x.callee.arg.name.text)
+        assert isinstance(x.arg, ast.Ref)
+        self.assertEqual("y", x.arg.name.text)

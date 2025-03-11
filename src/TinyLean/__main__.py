@@ -50,7 +50,13 @@ def main(file=_F if _F else fatal("usage: tinylean FILE")):
         fatal_on(text, loc, f"want '{want}' case parameters, but got '{got}'")
     except ast.CaseMissError as e:
         miss, loc = e.args
-        fatal_on(text, loc, f"missing case(s): {miss}")
+        fatal_on(text, loc, f"missing case: {miss}")
+    except ast.FieldMissError as e:
+        miss, loc = e.args
+        fatal_on(text, loc, f"missing field: {miss}")
+    except ast.UnknownFieldError as e:
+        want, got, loc = e.args
+        fatal_on(text, loc, f"unknown field '{got}' of class '{want}'")
     except ir.NoInstanceError as e:
         name, loc = e.args
         fatal_on(text, loc, f"no such instance for class '{name}'")

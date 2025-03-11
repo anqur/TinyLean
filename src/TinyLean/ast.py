@@ -3,6 +3,8 @@ from itertools import chain
 from dataclasses import dataclass, field
 from typing import OrderedDict, cast as _c
 
+from pyparsing import ParseResults
+
 from . import (
     Name,
     Param,
@@ -79,6 +81,17 @@ class Match(Node):
 
 _g.name.add_parse_action(lambda r: Name(r[0][0]))
 
+_ops = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
+
+
+def _infix(loc: int, ret: ParseResults):
+    r = ret[0]
+    if not isinstance(r, ParseResults):
+        return r
+    return Call(loc, Call(loc, Ref(loc, Name(_ops[r[1]])), r[0], False), r[2], False)
+
+
+_g.expr.add_parse_action(_infix)
 _g.type_.add_parse_action(lambda l, r: Type(l))
 _g.ph.add_parse_action(lambda l, r: Placeholder(l, True))
 _g.ref.add_parse_action(lambda l, r: Ref(l, r[0][0]))
@@ -383,7 +396,7 @@ class TypeChecker:
             fields.append((ir.Ref(f.name), self.check(nv[1], f_type)))
         for n, _ in vals.values():
             assert isinstance(n, Ref)
-            raise UnknownFieldError(n.name.text, n.loc)
+            raise UnknownFieldError(c.name.text, n.name.text, n.loc)
         c.instances.append(i.id)
         inst = Instance(i.loc, _c(ir.IR, ty), fields, i.id)
         self.globals[i.id] = inst

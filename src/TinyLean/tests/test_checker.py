@@ -715,8 +715,9 @@ class TestTypeChecker(TestCase):
         """
         with self.assertRaises(ast.UnknownFieldError) as e:
             ast.check_string(text)
-        name, loc = e.exception.args
-        self.assertEqual("b", name)
+        want, got, loc = e.exception.args
+        self.assertEqual("A", want)
+        self.assertEqual("b", got)
         self.assertEqual(text.index("b :="), loc)
 
     def test_check_program_instance_mismatch_failed(self):

@@ -165,3 +165,28 @@ Footer.
             def theorem (p: Eq A B): Eq B A := sym A B lemma
             """
         )
+
+    def test_operator_overloading(self):
+        ast.check_string(
+            """
+            inductive N where
+            | Z
+            | S (n: N)
+            open N
+
+            def addN (a: N) (b: N): N :=
+              match a with
+              | Z => b
+              | S pred => S (addN pred b)
+
+            class Add {T: Type} where
+              add: (a: T) -> (b: T) -> T
+            open Add
+
+            instance: Add (T := N)
+            where
+              add := addN
+
+            def f := (S Z) + (S Z)
+            """
+        )

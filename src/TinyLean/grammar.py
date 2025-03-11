@@ -20,12 +20,14 @@ INLINE_WHITE = Opt(Suppress(White(" \t\r"))).set_name("inline_whitespace")
 
 forwards = lambda names: map(lambda n: Forward().set_name(n), names.split())
 
-expr, fn_type, fn, match, nomatch, call, p_expr, type_, ph, ref = forwards(
-    "expr fn_type fn match nomatch call paren_expr type placeholder ref"
+expr, atom, fn_type, fn, match, nomatch, call, p_expr, type_, ph, ref = forwards(
+    "expr atom fn_type fn match nomatch call paren_expr type placeholder ref"
 )
 case, i_arg, e_arg = forwards("case implicit_arg explicit_arg")
 
-expr <<= fn_type | fn | match | nomatch | call | p_expr | type_ | ph | ref
+infix_op = lambda s: (one_of(s), 2, OpAssoc.LEFT)
+expr <<= infix_notation(atom, [infix_op("* /"), infix_op("+ -")])
+atom <<= fn_type | fn | match | nomatch | call | p_expr | type_ | ph | ref
 
 name = Group(IDENT).set_name("name")
 i_param = (LBRACE + name + COLON + expr + RBRACE).set_name("implicit_param")
