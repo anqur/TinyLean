@@ -30,7 +30,7 @@ expr <<= fn_type | fn | match | nomatch | call | p_expr | type_ | ph | ref
 name = Group(IDENT).set_name("name")
 i_param = (LBRACE + name + COLON + expr + RBRACE).set_name("implicit_param")
 e_param = (LPAREN + name + COLON + expr + RPAREN).set_name("explicit_param")
-c_param = (LBRACKET + expr + RBRACKET).set_name("constraint_param")
+c_param = (LBRACKET + name + COLON + expr + RBRACKET).set_name("class_param")
 param = (i_param | e_param | c_param).set_name("param")
 fn_type <<= param + ARROW + expr
 fn <<= FUN + Group(OneOrMore(name)) + TO + expr
@@ -48,7 +48,7 @@ ref <<= Group(name)
 
 return_type = Opt(COLON + expr)
 params = Group(ZeroOrMore(param))
-definition = (DEF + ref + params + return_type + ASSIGN + expr).set_name("definition")
+def_ = (DEF + ref + params + return_type + ASSIGN + expr).set_name("definition")
 example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
 type_arg = (LPAREN + ref + ASSIGN + expr + RPAREN).set_name("type_arg")
 ctor = (BAR + ref + params + Group(ZeroOrMore(type_arg))).set_name("constructor")
@@ -61,7 +61,7 @@ class_ = (
 ).set_name("class")
 i_field = (ref + ASSIGN + expr).set_name("instance_field")
 inst = (INST + COLON + expr + WHERE + Group(ZeroOrMore(i_field))).set_name("instance")
-declaration = (definition | example | data | class_ | inst).set_name("declaration")
+declaration = (def_ | example | data | class_ | inst).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
 

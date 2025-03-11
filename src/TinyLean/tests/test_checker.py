@@ -634,24 +634,36 @@ class TestTypeChecker(TestCase):
         ast.check_string(
             """
             class C where open C
-            example [C] := Type
+            example [p: C] := Type
             """
         )
 
+    def test_check_program_class_param_failed(self):
+        text = "example [p: Type] := Type"
+        with self.assertRaises(ast.TypeMismatchError) as e:
+            ast.check_string(text)
+        want, got, loc = e.exception.args
+        self.assertEqual("class", want)
+        self.assertEqual("Type", got)
+        self.assertEqual(text.index("Type]"), loc)
+
     def test_check_program_class_stuck(self):
-        ast.check_string(
+        _, _, e = ast.check_string(
             """
             class Default (T: Type) where
                 default: T
             open Default
-            example (U: Type) [Default U] := default
+            def f (U: Type) [p: Default U] := default U (inst := p)
+            example (V: Type) [q: Default V] := f V (p := q)
             """
         )
+        assert isinstance(e, Example)
+        self.assertEqual("default", str(e.body))
 
     def test_check_program_class_failed(self):
         text = """
         class C where open C
-        def f [C] := Type
+        def f [p: C] := Type
         example := f
         """
         with self.assertRaises(ir.NoInstanceError) as e:
@@ -666,7 +678,7 @@ class TestTypeChecker(TestCase):
             class C where open C
             instance: C
             where
-            def f [C] := Type
+            def f [p: C] := Type
             example := f
             """
         )
@@ -715,3 +727,72 @@ class TestTypeChecker(TestCase):
         self.assertEqual("class", want)
         self.assertEqual("Type", got)
         self.assertEqual(text.index("Type"), loc)
+
+    def test_check_program_field(self):
+        _, _, _, e = ast.check_string(
+            """
+            inductive Void where open Void
+
+            class C where
+                c: Type
+            open C
+
+            instance: C
+            where
+                c := Void
+
+            example: Type := c
+            """
+        )
+        assert isinstance(e, Example)
+        assert isinstance(e.body, ir.Data)
+        self.assertEqual("Void", e.body.name.text)
+
+    def test_check_program_field_parametric(self):
+        _, _, _, d = ast.check_string(
+            """
+            class Default (T: Type) where
+                default: T
+            open Default
+
+            inductive Data where
+            | A
+            | B
+            open Data
+
+            instance: Default Data
+            where
+                default := A
+
+            def f := default Data
+            """
+        )
+        assert isinstance(d, Def)
+        self.assertEqual("Data.A", str(d.body))
+
+    def test_check_program_class_add(self):
+        _, _, _, _, f = ast.check_string(
+            """
+            inductive N where
+            | Z
+            | S (n: N)
+            open N
+            
+            def addN (a: N) (b: N): N :=
+              match a with
+              | Z => b
+              | S pred => S (addN pred b)
+            
+            class Add {T: Type} where
+              add: (a: T) -> (b: T) -> T
+            open Add
+            
+            instance: Add (T := N)
+            where
+              add := addN
+            
+            def f := add (S Z) (S Z)
+            """
+        )
+        assert isinstance(f, Def)
+        self.assertEqual("(N.S (N.S N.Z))", str(f.body))

@@ -11,7 +11,7 @@ from . import (
     Sig,
     Decl,
     Class as ClassDecl,
-    Field,
+    Field as FieldDecl,
     Instance,
 )
 
@@ -137,6 +137,18 @@ class Class(IR):
         s = " ".join(str(x) for x in [self.name, *self.args])
         return f"({s})" if len(self.args) else s
 
+    def is_unsolved(self):
+        return any(isinstance(a, Ref) for a in self.args)
+
+
+@dataclass(frozen=True)
+class Field(IR):
+    name: Name
+    type: IR
+
+    def __str__(self):
+        return str(self.name)
+
 
 @dataclass(frozen=True)
 class Renamer:
@@ -166,13 +178,15 @@ class Renamer:
             return Match(arg, cases)
         if isinstance(v, Class):
             return Class(v.name, [self.run(x) for x in v.args])
+        if isinstance(v, Field):
+            return Field(v.name, self.run(v.type))
         assert any(isinstance(v, c) for c in (Type, Placeholder, Nomatch, Recur))
         return v
 
     def _param(self, p: Param[IR]):
         name = Name(p.name.text)
         self.locals[p.name.id] = name.id
-        return Param(name, self.run(p.type), p.is_implicit)
+        return Param(name, self.run(p.type), p.is_implicit, p.is_class)
 
 
 _rn = lambda v: Renamer().run(v)
@@ -214,11 +228,10 @@ def from_class(c: ClassDecl[IR]):
     return _rn(_to(c.params, Class(c.name, args))), _rn(_to(c.params, Type(), True))
 
 
-def from_field(f: Field[IR], c: ClassDecl[IR]):
-    # FIXME: Should return an `Instance` as value.
-    args = [Ref(p.name) for p in c.params]
-    params = [*c.params, Param(Name("_"), Class(c.name, args), True)]
-    return _rn(_to(params, f.type)), _rn(_to(params, Type(), True))
+def from_field(f: FieldDecl[IR], c: ClassDecl[IR], has_c_param=True):
+    t = Class(c.name, [Ref(p.name) for p in c.params])
+    ps = [*c.params, Param(Name("inst"), t, True, True)] if has_c_param else c.params
+    return _rn(_to(ps, Field(f.name, t))), _rn(_to(ps, f.type, True))
 
 
 @dataclass
@@ -291,22 +304,15 @@ class Inliner:
                 assert isinstance(d, Sig)
             return v
         if isinstance(v, Class):
-            args = [self.run(t) for t in v.args]
-            cls = Class(v.name, args)
-            if any(isinstance(t, Ref) for t in args):
-                return cls
-            c = self.globals[v.name.id]
-            assert isinstance(c, ClassDecl)
-            for inst_id in c.instances:  # pragma: no cover
-                # TODO: Testing.
-                i = self.globals[inst_id]
-                assert isinstance(i, Instance)
-                holes_len = len(self.holes)
-                ok = Converter(self.holes, self.globals).eq(cls, i.type)
-                [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
-                if ok:
-                    return cls
-            raise NoInstanceError(str(cls), c.loc)
+            return Class(v.name, [self.run(t) for t in v.args])
+        if isinstance(v, Field):
+            c = self.run(v.type)
+            assert isinstance(c, Class)
+            if c.is_unsolved():
+                return Field(v.name, c)
+            i = self._resolve_instance(c)
+            val = next(val for n, val in i.fields if _c(Ref, n).name.id == v.name.id)
+            return self.run(val)
         assert isinstance(v, Type) or isinstance(v, Nomatch)
         return v
 
@@ -323,8 +329,27 @@ class Inliner:
                 ret = Call(ret, x)
         return ret
 
-    def _param(self, p: Param[IR]):
-        return Param(p.name, self.run(p.type), p.is_implicit)
+    def _param(self, param: Param[IR]):
+        p = Param(param.name, self.run(param.type), param.is_implicit, param.is_class)
+        if not p.is_class:
+            return p
+        assert isinstance(p.type, Class)
+        if not p.type.is_unsolved() and not self._resolve_instance(p.type):
+            raise NoInstanceError(str(p.type), self.globals[p.type.name.id].loc)
+        return p
+
+    def _resolve_instance(self, c: Class) -> Optional[Instance[IR]]:
+        cls = self.globals[c.name.id]
+        assert isinstance(cls, ClassDecl)
+        for inst_id in cls.instances:
+            i = self.globals[inst_id]
+            assert isinstance(i, Instance)
+            holes_len = len(self.holes)
+            ok = Converter(self.holes, self.globals).eq(c, i.type)
+            [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
+            if ok:
+                return i
+        return None
 
 
 @dataclass(frozen=True)
@@ -353,14 +378,14 @@ class Converter:
                 return t.id == u.id and x.id == y.id and self._args(xs, ys)
             case Type(), Type():
                 return True
-            case Class(x, xs), Class(y, ys):  # pragma: no cover
-                # TODO: Testing.
+            case Class(x, xs), Class(y, ys):
                 return x.id == y.id and self._args(xs, ys)
 
         # FIXME: Following cases not seen in tests yet:
         assert not (isinstance(lhs, Fn) and isinstance(rhs, Fn))
         assert not (isinstance(lhs, Placeholder) and isinstance(rhs, Placeholder))
         assert not (isinstance(lhs, Match) and isinstance(rhs, Match))
+        assert not (isinstance(lhs, Field) and isinstance(rhs, Field))
 
         return False
 

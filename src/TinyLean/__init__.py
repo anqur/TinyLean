@@ -21,9 +21,10 @@ class Param[T]:
     name: Name
     type: T
     is_implicit: bool
+    is_class: bool = False
 
     def __str__(self):
-        l, r = "{}" if self.is_implicit else "()"
+        l, r = "()" if not self.is_implicit else "{}" if not self.is_class else "[]"
         return f"{l}{self.name}: {self.type}{r}"
 
 

@@ -84,7 +84,7 @@ _g.ph.add_parse_action(lambda l, r: Placeholder(l, True))
 _g.ref.add_parse_action(lambda l, r: Ref(l, r[0][0]))
 _g.i_param.add_parse_action(lambda r: Param(r[0], r[1], True))
 _g.e_param.add_parse_action(lambda r: Param(r[0], r[1], False))
-_g.c_param.add_parse_action(lambda r: Param(Name("_"), r[0], True))
+_g.c_param.add_parse_action(lambda r: Param(r[0], r[1], True, True))
 _g.fn_type.add_parse_action(lambda l, r: FnType(l, r[0], r[1]))
 _g.fn.add_parse_action(
     lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
@@ -100,9 +100,7 @@ _g.call.add_parse_action(
 _g.p_expr.add_parse_action(lambda r: r[0])
 
 _g.return_type.add_parse_action(lambda l, r: r[0] if len(r) else Placeholder(l, False))
-_g.definition.add_parse_action(
-    lambda r: Def(r[0].loc, r[0].name, list(r[1]), r[2], r[3])
-)
+_g.def_.add_parse_action(lambda r: Def(r[0].loc, r[0].name, list(r[1]), r[2], r[3]))
 _g.example.add_parse_action(lambda l, r: Example(l, list(r[0]), r[1], r[2]))
 _g.type_arg.add_parse_action(lambda r: (r[0], r[1]))
 _g.ctor.add_parse_action(lambda r: Ctor(r[0].loc, r[0].name, list(r[1]), list(r[2])))
@@ -208,7 +206,7 @@ class NameResolver:
         ret = []
         for p in params:
             self._insert_local(p.name)
-            ret.append(Param(p.name, self.expr(p.type), p.is_implicit))
+            ret.append(Param(p.name, self.expr(p.type), p.is_implicit, p.is_class))
         return ret
 
     def expr(self, n: Node) -> Node:
@@ -219,7 +217,8 @@ class NameResolver:
         if isinstance(n, FnType):
             typ = self.expr(n.param.type)
             b = self._with_locals(n.ret, n.param.name)
-            return FnType(n.loc, Param(n.param.name, typ, n.param.is_implicit), b)
+            p = Param(n.param.name, typ, n.param.is_implicit, n.param.is_class)
+            return FnType(n.loc, p, b)
         if isinstance(n, Fn):
             return Fn(n.loc, n.param, self._with_locals(n.body, n.param))
         if isinstance(n, Call):
@@ -295,9 +294,10 @@ class TypeChecker:
     def __ror__(self, ds: list[Decl]):
         ret = [self._run(d) for d in ds]
         for i, h in self.holes.items():
-            ty = self._inliner().run(h.answer.type)
-            _solve_class_answer(h.answer, ty)
             if h.answer.is_unsolved():
+                ty = self._inliner().run(h.answer.type)
+                if _is_solved_class(ty):
+                    continue
                 p = ir.Placeholder(i, h.is_user)
                 raise UnsolvedPlaceholderError(str(p), h.locals, ty, h.loc)
         return ret
@@ -370,7 +370,17 @@ class TypeChecker:
             nv = vals.pop(f.name.id, None)
             if not nv:
                 raise FieldMissError(f.name.text, i.loc)
-            fields.append((ir.Ref(f.name), self.check(nv[1], f.type)))
+            _, v = nv
+            f_decl = self.globals[f.name.id]
+            assert isinstance(f_decl, Field)
+            field_ty = ir.from_field(f_decl, c, False)[1]
+            env = []
+            for ty_arg in ty.args:
+                assert isinstance(field_ty, ir.FnType)
+                env.append((field_ty.param.name, ty_arg))
+                field_ty = field_ty.ret
+            f_type = self._inliner().run_with(field_ty, *env)
+            fields.append((ir.Ref(f.name), self.check(nv[1], f_type)))
         for n, _ in vals.values():
             assert isinstance(n, Ref)
             raise UnknownFieldError(n.name.text, n.loc)
@@ -382,19 +392,25 @@ class TypeChecker:
     def _params(self, params: list[Param[Node]]):
         ret = []
         for p in params:
-            param = Param(p.name, self.check(p.type, ir.Type()), p.is_implicit)
+            t = self.check(p.type, ir.Type())
+            if p.is_class:
+                t = self._inliner().run(t)
+                assert p.is_implicit
+                if not isinstance(t, ir.Class):
+                    raise TypeMismatchError("class", str(t), p.type.loc)
+            param = Param(p.name, t, p.is_implicit, p.is_class)
             self.locals[p.name.id] = param
             ret.append(param)
         return ret
 
     def check(self, n: Node, typ: ir.IR) -> ir.IR:
         if isinstance(n, Fn):
-            want = self._inliner().run(typ)
-            if not isinstance(want, ir.FnType):
-                raise TypeMismatchError(str(want), "function", n.loc)
-            ret = self._inliner().run_with(want.ret, (want.param.name, ir.Ref(n.param)))
-            param = Param(n.param, want.param.type, want.param.is_implicit)
-            return ir.Fn(param, self._check_with(n.body, ret, param))
+            t = self._inliner().run(typ)
+            if not isinstance(t, ir.FnType):
+                raise TypeMismatchError(str(t), "function", n.loc)
+            ret = self._inliner().run_with(t.ret, (t.param.name, ir.Ref(n.param)))
+            p = Param(n.param, t.param.type, t.param.is_implicit, t.param.is_class)
+            return ir.Fn(p, self._check_with(n.body, ret, p))
 
         holes_len = len(self.holes)
         val, got = self.infer(n)
@@ -436,9 +452,9 @@ class TypeChecker:
             return ir.from_field(d, cls_decl)
         if isinstance(n, FnType):
             p_typ = self.check(n.param.type, ir.Type())
-            inferred_p = Param(n.param.name, p_typ, n.param.is_implicit)
-            b_val = self._check_with(n.ret, ir.Type(), inferred_p)
-            return ir.FnType(inferred_p, b_val), ir.Type()
+            p = Param(n.param.name, p_typ, n.param.is_implicit, n.param.is_class)
+            b_val = self._check_with(n.ret, ir.Type(), p)
+            return ir.FnType(p, b_val), ir.Type()
         if isinstance(n, Call):
             holes_len = len(self.holes)
             f_val, got = self.infer(n.callee)
@@ -541,11 +557,10 @@ class TypeChecker:
         [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
 
 
-def _solve_class_answer(answer: ir.Answer, ty: ir.IR):
-    if not isinstance(ty, ir.Class):
-        return
-    assert all(not isinstance(a, ir.Ref) for a in ty.args)
-    answer.value = ir.Ref(ty.name)
+def _is_solved_class(ty: ir.IR):
+    if isinstance(ty, ir.Class):
+        return all(not isinstance(a, ir.Ref) for a in ty.args)
+    return False
 
 
 def _can_insert_placeholders(ty: ir.IR):

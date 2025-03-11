@@ -167,7 +167,7 @@ class TestParser(TestCase):
         self.assertEqual("d", x.body.param.text)
 
     def test_parse_definition_constant(self):
-        x = parse(grammar.definition, "  def f : Type := Type")[0]
+        x = parse(grammar.def_, "  def f : Type := Type")[0]
         assert isinstance(x, Def)
         self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
@@ -178,7 +178,7 @@ class TestParser(TestCase):
         self.assertEqual(18, x.body.loc)
 
     def test_parse_definition(self):
-        x = parse(grammar.definition, "  def f {a: Type} (b: Type): Type := a")[0]
+        x = parse(grammar.def_, "  def f {a: Type} (b: Type): Type := a")[0]
         assert isinstance(x, Def)
         self.assertEqual(6, x.loc)
         self.assertEqual("f", x.name.text)
@@ -237,7 +237,7 @@ class TestParser(TestCase):
         self.assertFalse(x.is_user)
 
     def test_parse_definition_no_return(self):
-        x = parse(grammar.definition, "def a := Type")[0]
+        x = parse(grammar.def_, "def a := Type")[0]
         assert isinstance(x, Def)
         assert isinstance(x.ret, ast.Placeholder)
         self.assertFalse(x.ret.is_user)
@@ -262,7 +262,7 @@ class TestParser(TestCase):
 
     def test_parse_definition_call_implicit(self):
         x = parse(
-            grammar.definition,
+            grammar.def_,
             """
             def f: Type := a ( 
                 T := Nat 
@@ -362,10 +362,10 @@ class TestParser(TestCase):
         self.assertEqual(3, len(x.cases))
         self.assertTrue(x.cases[2].ctor.name.is_unbound())
 
-    def test_parse_constraint_param(self):
-        x = parse(grammar.c_param, "[GAdd Type]")[0]
+    def test_parse_class_param(self):
+        x = parse(grammar.c_param, "[p: GAdd Type]")[0]
         assert isinstance(x, Param)
-        self.assertTrue(x.name.is_unbound())
+        self.assertEqual("p", x.name.text)
         assert isinstance(x.type, ast.Call)
         assert isinstance(x.type.callee, ast.Ref)
         self.assertEqual("GAdd", x.type.callee.name.text)
