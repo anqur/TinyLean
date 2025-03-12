@@ -591,10 +591,7 @@ def _with_placeholders(f: Node, f_ty: ir.IR, implicit: str | bool) -> Node | Non
 
     pending = 0
     while True:
-        # FIXME: Would fail with `{a: Type} -> Type`?
-        assert isinstance(f_ty, ir.FnType)
-
-        if not f_ty.param.is_implicit:
+        if not isinstance(f_ty, ir.FnType) or not f_ty.param.is_implicit:
             raise UndefinedVariableError(implicit, f.loc)
         if f_ty.param.name.text == implicit:
             break

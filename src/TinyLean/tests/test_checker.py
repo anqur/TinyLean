@@ -778,20 +778,20 @@ class TestTypeChecker(TestCase):
             | Z
             | S (n: N)
             open N
-            
+
             def addN (a: N) (b: N): N :=
               match a with
               | Z => b
               | S pred => S (addN pred b)
-            
+
             class Add {T: Type} where
               add: (a: T) -> (b: T) -> T
             open Add
-            
+
             instance: Add (T := N)
             where
               add := addN
-            
+
             def f := add (S Z) (S Z)
             """
         )

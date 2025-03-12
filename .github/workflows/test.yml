@@ -53,6 +53,6 @@ jobs:
           auth: ${{ secrets.CLOC_GIST_SECRET }}
           gistID: 5d8f9b1d4b414b7076cf84f4eae089d9
           filename: cloc.json
-          label: Lines of Python
+          label: Python 行数
           message: ${{ env.CLOC }}
           color: orange

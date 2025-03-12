@@ -367,6 +367,9 @@ class Converter:
                 return x.id == y.id
             case Call(f, x), Call(g, y):
                 return self.eq(f, g) and self.eq(x, y)
+            case Fn(p, b), Fn(q, c):
+                env = [(q.name, Ref(p.name))]
+                return self.eq(b, Inliner(self.holes, self.globals).run_with(c, *env))
             case FnType(p, b), FnType(q, c):
                 if not self.eq(p.type, q.type):
                     return False
@@ -382,7 +385,6 @@ class Converter:
                 return x.id == y.id and self._args(xs, ys)
 
         # FIXME: Following cases not seen in tests yet:
-        assert not (isinstance(lhs, Fn) and isinstance(rhs, Fn))
         assert not (isinstance(lhs, Placeholder) and isinstance(rhs, Placeholder))
         assert not (isinstance(lhs, Match) and isinstance(rhs, Match))
         assert not (isinstance(lhs, Field) and isinstance(rhs, Field))
