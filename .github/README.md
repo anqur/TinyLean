@@ -149,7 +149,7 @@ def myLemma
   (c: b a)
   : Type
   := Type
-/-   ^~~^ 尝试将这里的“Type”换成“_“ -/
+/-   ^~~^ 尝试将这里的“Type”换成“_” -/
 
 def myTheorem := myLemma Type (id Type) Type
 ```

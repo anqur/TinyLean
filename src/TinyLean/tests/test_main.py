@@ -132,7 +132,7 @@ Footer.
 
     def test_readme(self):
         p = Path(__file__).parent / ".." / ".." / ".." / ".github" / "README.md"
-        with open(p) as f:
+        with open(p, encoding="utf-8") as f:
             results = ast.check_string(f.read(), True)
         self.assertGreater(len(results), 1)
 

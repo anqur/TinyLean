@@ -18,7 +18,7 @@ def fatal_on(text: str, loc: int, m: str):
 
 def main(file=_F if _F else fatal("usage: tinylean FILE")):
     try:
-        with open(file) as f:
+        with open(file, encoding="utf-8") as f:
             text = f.read()
             ast.check_string(text, file.suffix == ".md")
     except OSError as e:
