@@ -167,14 +167,12 @@ class NameResolver:
         if isinstance(decl, Class):
             return self._class(decl)
 
-        assert isinstance(decl, Instance)
-        return self._inst(decl)
+        return self._inst(_c(Instance, decl))
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         params = self._params(d.params)
         ret = self.expr(d.ret)
         body = self.expr(d.body)
-        assert len(self.locals) <= len(params)
         if isinstance(d, Example):
             return Example(d.loc, params, ret, body)
         return Def(d.loc, d.name, params, ret, body)
@@ -182,7 +180,6 @@ class NameResolver:
     def _data(self, d: Data[Node]):
         params = self._params(d.params)
         ctors = [self._ctor(c, d.name) for c in d.ctors]
-        assert len(self.locals) <= len(params)
         return Data(d.loc, d.name, params, ctors)
 
     def _ctor(self, c: Ctor[Node], ty_name: Name):
@@ -207,8 +204,7 @@ class NameResolver:
         fields = []
         field_ids = set()
         for n, v in i.fields:
-            n = self.expr(n)
-            assert isinstance(n, Ref)
+            n = _c(Ref, self.expr(n))
             if n.name.id in field_ids:
                 raise DuplicateVariableError(n.name.text, n.loc)
             field_ids.add(n.name.id)
@@ -323,8 +319,7 @@ class TypeChecker:
             return self._data(decl)
         if isinstance(decl, Instance):
             return self._inst(decl)
-        assert isinstance(decl, Class)
-        return self._class(decl)
+        return self._class(_c(Class, decl))
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         params = self._params(d.params)
@@ -354,7 +349,6 @@ class TypeChecker:
         for x, v in c.ty_args:
             x_val, x_ty = self.infer(x)
             v_val = self.check(v, x_ty)
-            assert isinstance(x_val, ir.Ref)
             ty_args.append((x_val, v_val))
         ctor = Ctor(c.loc, c.name, params, ty_args, c.ty_name)
         self.globals[c.name.id] = ctor
@@ -375,8 +369,7 @@ class TypeChecker:
         ty = self.check(i.type, ir.Type())
         if not isinstance(ty, ir.Class):
             raise TypeMismatchError("class", str(ty), i.type.loc)
-        c = self.globals[ty.name.id]
-        assert isinstance(c, Class)
+        c = _c(Class, self.globals[ty.name.id])
         vals = {_c(Ref, n).name.id: (n, f) for n, f in i.fields}
         fields = []
         for f in c.fields:
@@ -384,8 +377,7 @@ class TypeChecker:
             if not nv:
                 raise FieldMissError(f.name.text, i.loc)
             _, v = nv
-            f_decl = self.globals[f.name.id]
-            assert isinstance(f_decl, Field)
+            f_decl = _c(Field, self.globals[f.name.id])
             field_ty = ir.from_field(f_decl, c, False)[1]
             env = []
             for ty_arg in ty.args:
@@ -454,15 +446,11 @@ class TypeChecker:
             if isinstance(d, Data):
                 return ir.from_data(d)
             if isinstance(d, Ctor):
-                data_decl = self.globals[d.ty_name.id]
-                assert isinstance(data_decl, Data)
+                data_decl = _c(Data, self.globals[d.ty_name.id])
                 return ir.from_ctor(d, data_decl)
-            if isinstance(d, Class):
-                return ir.from_class(d)
-            assert isinstance(d, Field)
-            cls_decl = self.globals[d.cls_name.id]
-            assert isinstance(cls_decl, Class)
-            return ir.from_field(d, cls_decl)
+            if isinstance(d, Field):
+                return ir.from_field(d, _c(Class, self.globals[d.cls_name.id]))
+            return ir.from_class(_c(Class, d))
         if isinstance(n, FnType):
             p_typ = self.check(n.param.type, ir.Type())
             p = Param(n.param.name, p_typ, n.param.is_implicit, n.param.is_class)
@@ -507,11 +495,10 @@ class TypeChecker:
                 ctor = ctors.get(c.ctor.name.id)
                 if not ctor:
                     raise UnknownCaseError(data.name.text, c.ctor.name.text, c.loc)
-                holes_len = len(self.holes)
-                c_ty = self._ctor_return_type(c.loc, ctor, data)
-                if not self._eq(c_ty, arg_ty):
-                    raise TypeMismatchError(str(arg_ty), str(c_ty), c.loc)
-                [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
+                with ir.dirty_holes(self.holes):
+                    c_ty = self._ctor_return_type(c.loc, ctor, data)
+                    if not self._eq(c_ty, arg_ty):
+                        raise TypeMismatchError(str(arg_ty), str(c_ty), c.loc)
                 if ctor.name.id in cases:
                     raise DuplicateCaseError(ctor.name.text, c.loc)
                 if len(c.params) != len(ctor.params):
@@ -529,7 +516,7 @@ class TypeChecker:
         return ir.Type(), ir.Type()
 
     def _inliner(self):
-        return ir.Inliner(self.holes, _c(dict[int, Def[ir.IR]], self.globals))
+        return ir.Inliner(self.holes, self.globals)
 
     def _eq(self, got: ir.IR, want: ir.IR):
         return ir.Converter(self.holes, self.globals).eq(got, want)
@@ -564,10 +551,9 @@ class TypeChecker:
         return ty
 
     def _exhaust(self, loc: int, c: Ctor[ir.IR], d: Data[ir.IR], want: ir.IR):
-        holes_len = len(self.holes)
-        if self._eq(self._ctor_return_type(loc, c, d), want):
-            raise CaseMissError(c.name.text, loc)
-        [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
+        with ir.dirty_holes(self.holes):
+            if self._eq(self._ctor_return_type(loc, c, d), want):
+                raise CaseMissError(c.name.text, loc)
 
 
 def _is_solved_class(ty: ir.IR):

@@ -430,7 +430,7 @@ def mustBeDefault (T: Type) [p: Default T] := Type
 example := mustBeDefault N
 ```
 
-很明晰，`N` 类型符合这个限制。而当我们传入其他的类型，例如 `Bot` 时，证明器会告诉我们找不到对应的实例声明：
+很明显，`N` 类型符合这个限制。而当我们传入其他的类型，例如 `Bot` 时，证明器会告诉我们找不到对应的实例声明：
 
 ```plaintext
 .github/README.md:?:?: no such instance for class '(Default Bot)'

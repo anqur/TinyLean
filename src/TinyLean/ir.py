@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import reduce as _r
 from typing import Optional, cast as _c, OrderedDict
@@ -251,6 +252,15 @@ class Hole:
     answer: Answer
 
 
+@contextmanager
+def dirty_holes(holes: OrderedDict[int, Hole]):
+    l = len(holes)
+    try:
+        yield
+    finally:
+        [holes.popitem() for _ in range(len(holes) - l)]
+
+
 class NoInstanceError(Exception): ...
 
 
@@ -306,8 +316,7 @@ class Inliner:
         if isinstance(v, Class):
             return Class(v.name, [self.run(t) for t in v.args])
         if isinstance(v, Field):
-            c = self.run(v.type)
-            assert isinstance(c, Class)
+            c = _c(Class, self.run(v.type))
             if c.is_unsolved():
                 return Field(v.name, c)
             i = self._resolve_instance(c)
@@ -333,22 +342,18 @@ class Inliner:
         p = Param(param.name, self.run(param.type), param.is_implicit, param.is_class)
         if not p.is_class:
             return p
-        assert isinstance(p.type, Class)
-        if not p.type.is_unsolved() and not self._resolve_instance(p.type):
-            raise NoInstanceError(str(p.type), self.globals[p.type.name.id].loc)
+        ty = _c(Class, p.type)
+        if not ty.is_unsolved() and not self._resolve_instance(ty):
+            raise NoInstanceError(str(ty), self.globals[ty.name.id].loc)
         return p
 
     def _resolve_instance(self, c: Class) -> Optional[Instance[IR]]:
-        cls = self.globals[c.name.id]
-        assert isinstance(cls, ClassDecl)
+        cls = _c(ClassDecl, self.globals[c.name.id])
         for inst_id in cls.instances:
-            i = self.globals[inst_id]
-            assert isinstance(i, Instance)
-            holes_len = len(self.holes)
-            ok = Converter(self.holes, self.globals).eq(c, i.type)
-            [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
-            if ok:
-                return i
+            i = _c(Instance, self.globals[inst_id])
+            with dirty_holes(self.holes):
+                if Converter(self.holes, self.globals).eq(c, i.type):
+                    return i
         return None
 
 

@@ -1,5 +1,7 @@
 from pyparsing import *
 
+ParserElement.enable_packrat()
+
 COMMENT = Regex(r"/\-(?:[^-]|\-(?!/))*\-\/").set_name("comment")
 
 IDENT = unicode_set.identifier()
