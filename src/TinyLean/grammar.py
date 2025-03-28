@@ -37,10 +37,10 @@ e_param = (LPAREN + name + COLON + expr + RPAREN).set_name("explicit_param")
 c_param = (LBRACKET + name + COLON + expr + RBRACKET).set_name("class_param")
 param = (i_param | e_param | c_param).set_name("param")
 fn_type <<= param + ARROW + expr
-fn <<= FUN + Group(OneOrMore(name)) + TO + expr
-match <<= MATCH + (type_ | ref | p_expr) + WITH + Group(OneOrMore(case))
-case <<= BAR + ref + Group(ZeroOrMore(name)) + TO + expr
-nomatch <<= (NOMATCH + INLINE_WHITE + e_arg).leave_whitespace()
+fn <<= FUN - Group(OneOrMore(name)) + TO + expr
+match <<= MATCH - (type_ | ref | p_expr) + WITH + Group(OneOrMore(case))
+case <<= BAR - ref + Group(ZeroOrMore(name)) + TO + expr
+nomatch <<= (NOMATCH - INLINE_WHITE + e_arg).leave_whitespace()
 callee = ref | p_expr
 call <<= (callee + OneOrMore(INLINE_WHITE + (i_arg | e_arg))).leave_whitespace()
 i_arg <<= LPAREN + IDENT + ASSIGN + expr + RPAREN
@@ -52,19 +52,19 @@ ref <<= Group(name)
 
 return_type = Opt(COLON + expr)
 params = Group(ZeroOrMore(param))
-def_ = (DEF + ref + params + return_type + ASSIGN + expr).set_name("definition")
-example = (EXAMPLE + params + return_type + ASSIGN + expr).set_name("example")
+def_ = (DEF - ref + params + return_type + ASSIGN + expr).set_name("definition")
+example = (EXAMPLE - params + return_type + ASSIGN + expr).set_name("example")
 type_arg = (LPAREN + ref + ASSIGN + expr + RPAREN).set_name("type_arg")
-ctor = (BAR + ref + params + Group(ZeroOrMore(type_arg))).set_name("constructor")
-data = (IND + ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT).set_name(
+ctor = (BAR - ref + params + Group(ZeroOrMore(type_arg))).set_name("constructor")
+data = (IND - ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT).set_name(
     "datatype"
 )
 c_field = (name + COLON + expr).set_name("class_field")
 class_ = (
-    CLASS + ref + params + WHERE + Group(ZeroOrMore(c_field)) + OPEN + IDENT
+    CLASS - ref + params + WHERE + Group(ZeroOrMore(c_field)) + OPEN + IDENT
 ).set_name("class")
 i_field = (ref + ASSIGN + expr).set_name("instance_field")
-inst = (INST + COLON + expr + WHERE + Group(ZeroOrMore(i_field))).set_name("instance")
+inst = (INST - COLON + expr + WHERE + Group(ZeroOrMore(i_field))).set_name("instance")
 declaration = (def_ | example | data | class_ | inst).set_name("declaration")
 
 program = ZeroOrMore(declaration).ignore(COMMENT).set_name("program")
