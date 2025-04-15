@@ -376,7 +376,6 @@ class TypeChecker:
             nv = vals.pop(f.name.id, None)
             if not nv:
                 raise FieldMissError(f.name.text, i.loc)
-            _, v = nv
             f_decl = _c(Field, self.globals[f.name.id])
             field_ty = ir.from_field(f_decl, c, False)[1]
             env = []
