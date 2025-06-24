@@ -1,7 +1,7 @@
 from functools import reduce
 from itertools import chain
 from dataclasses import dataclass, field
-from typing import OrderedDict, cast as _c
+from typing import OrderedDict, cast
 
 from pyparsing import ParseResults
 
@@ -167,7 +167,7 @@ class NameResolver:
         if isinstance(decl, Class):
             return self._class(decl)
 
-        return self._inst(_c(Instance, decl))
+        return self._inst(cast(Instance, decl))
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         params = self._params(d.params)
@@ -204,7 +204,7 @@ class NameResolver:
         fields = []
         field_ids = set()
         for n, v in i.fields:
-            n = _c(Ref, self.expr(n))
+            n = cast(Ref, self.expr(n))
             if n.name.id in field_ids:
                 raise DuplicateVariableError(n.name.text, n.loc)
             field_ids.add(n.name.id)
@@ -238,7 +238,7 @@ class NameResolver:
             arg = self.expr(n.arg)
             cases = []
             for c in n.cases:
-                ctor = _c(Ref, self.expr(c.ctor))
+                ctor = cast(Ref, self.expr(c.ctor))
                 body = self._with_locals(c.body, *c.params)
                 cases.append(Case(c.loc, ctor, c.params, body))
             return Match(n.loc, arg, cases)
@@ -319,7 +319,7 @@ class TypeChecker:
             return self._data(decl)
         if isinstance(decl, Instance):
             return self._inst(decl)
-        return self._class(_c(Class, decl))
+        return self._class(cast(Class, decl))
 
     def _def_or_example(self, d: Def[Node] | Example[Node]):
         params = self._params(d.params)
@@ -369,14 +369,14 @@ class TypeChecker:
         ty = self.check(i.type, ir.Type())
         if not isinstance(ty, ir.Class):
             raise TypeMismatchError("class", str(ty), i.type.loc)
-        c = _c(Class, self.globals[ty.name.id])
-        vals = {_c(Ref, n).name.id: (n, f) for n, f in i.fields}
+        c = cast(Class, self.globals[ty.name.id])
+        vals = {cast(Ref, n).name.id: (n, f) for n, f in i.fields}
         fields = []
         for f in c.fields:
             nv = vals.pop(f.name.id, None)
             if not nv:
                 raise FieldMissError(f.name.text, i.loc)
-            f_decl = _c(Field, self.globals[f.name.id])
+            f_decl = cast(Field, self.globals[f.name.id])
             field_ty = ir.from_field(f_decl, c, False)[1]
             env = []
             for ty_arg in ty.args:
@@ -389,7 +389,7 @@ class TypeChecker:
             assert isinstance(n, Ref)
             raise UnknownFieldError(c.name.text, n.name.text, n.loc)
         c.instances.append(i.id)
-        inst = Instance(i.loc, _c(ir.IR, ty), fields, i.id)
+        inst = Instance(i.loc, cast(ir.IR, ty), fields, i.id)
         self.globals[i.id] = inst
         return inst
 
@@ -445,11 +445,11 @@ class TypeChecker:
             if isinstance(d, Data):
                 return ir.from_data(d)
             if isinstance(d, Ctor):
-                data_decl = _c(Data, self.globals[d.ty_name.id])
+                data_decl = cast(Data, self.globals[d.ty_name.id])
                 return ir.from_ctor(d, data_decl)
             if isinstance(d, Field):
-                return ir.from_field(d, _c(Class, self.globals[d.cls_name.id]))
-            return ir.from_class(_c(Class, d))
+                return ir.from_field(d, cast(Class, self.globals[d.cls_name.id]))
+            return ir.from_class(cast(Class, d))
         if isinstance(n, FnType):
             p_typ = self.check(n.param.type, ir.Type())
             p = Param(n.param.name, p_typ, n.param.is_implicit, n.param.is_class)
@@ -478,7 +478,7 @@ class TypeChecker:
             _, got = self.infer(n.arg)
             if not isinstance(got, ir.Data):
                 raise TypeMismatchError("datatype", str(got), n.arg.loc)
-            data = _c(Data, self.globals[got.name.id])
+            data = cast(Data, self.globals[got.name.id])
             for c in data.ctors:
                 self._exhaust(n.arg.loc, c, data, got)
             return ir.Nomatch(), self._insert_hole(n.loc, False, ir.Type())
@@ -486,7 +486,7 @@ class TypeChecker:
             arg, arg_ty = self.infer(n.arg)
             if not isinstance(arg_ty, ir.Data):
                 raise TypeMismatchError("datatype", str(arg_ty), n.arg.loc)
-            data = _c(Data, self.globals[arg_ty.name.id])
+            data = cast(Data, self.globals[arg_ty.name.id])
             ctors = {c.name.id: c for c in data.ctors}
             ty: ir.IR | None = None
             cases: dict[int, ir.Case] = {}
