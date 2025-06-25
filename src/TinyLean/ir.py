@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from functools import reduce as _r
-from typing import Optional, cast as _c, OrderedDict
+from functools import reduce
+from typing import Optional, cast, OrderedDict
 
 from . import (
     Name,
@@ -194,7 +194,7 @@ _rn = lambda v: Renamer().run(v)
 
 
 def _to(p: list[Param[IR]], v: IR, t=False):
-    return _r(lambda a, q: _c(IR, FnType(q, a) if t else Fn(q, a)), reversed(p), v)
+    return reduce(lambda a, q: cast(IR, FnType(q, a) if t else Fn(q, a)), reversed(p), v)
 
 
 def from_def(d: Def[IR]):
@@ -211,7 +211,7 @@ def from_data(d: DataDecl[IR]):
 
 
 def from_ctor(c: CtorDecl[IR], d: DataDecl[IR]):
-    adhoc = {x.name.id: v for x, v in _c(dict[Ref, IR], c.ty_args)}
+    adhoc = {x.name.id: v for x, v in cast(dict[Ref, IR], c.ty_args)}
     miss = [Param(p.name, p.type, True) for p in d.params if p.name.id not in adhoc]
 
     v = _to(c.params, Ctor(d.name, c.name, [Ref(p.name) for p in c.params]))
@@ -316,11 +316,11 @@ class Inliner:
         if isinstance(v, Class):
             return Class(v.name, [self.run(t) for t in v.args])
         if isinstance(v, Field):
-            c = _c(Class, self.run(v.type))
+            c = cast(Class, self.run(v.type))
             if c.is_unsolved():
                 return Field(v.name, c)
             i = self._resolve_instance(c)
-            val = next(val for n, val in i.fields if _c(Ref, n).name.id == v.name.id)
+            val = next(val for n, val in i.fields if cast(Ref, n).name.id == v.name.id)
             return self.run(val)
         assert isinstance(v, Type) or isinstance(v, Nomatch)
         return v
@@ -342,15 +342,15 @@ class Inliner:
         p = Param(param.name, self.run(param.type), param.is_implicit, param.is_class)
         if not p.is_class:
             return p
-        ty = _c(Class, p.type)
+        ty = cast(Class, p.type)
         if not ty.is_unsolved() and not self._resolve_instance(ty):
             raise NoInstanceError(str(ty), self.globals[ty.name.id].loc)
         return p
 
     def _resolve_instance(self, c: Class) -> Optional[Instance[IR]]:
-        cls = _c(ClassDecl, self.globals[c.name.id])
+        cls = cast(ClassDecl, self.globals[c.name.id])
         for inst_id in cls.instances:
-            i = _c(Instance, self.globals[inst_id])
+            i = cast(Instance, self.globals[inst_id])
             with dirty_holes(self.holes):
                 if Converter(self.holes, self.globals).eq(c, i.type):
                     return i
