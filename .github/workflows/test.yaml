@@ -37,22 +37,3 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-  cloc:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install cloc jq
-      - name: Run CLOC
-        run: cloc --exclude-dir=dist,venv,build,tests --json . | jq '"CLOC="+(.Python.code|tostring)' -r  >> $GITHUB_ENV
-      - name: Create CLOC badge
-        uses: schneegans/dynamic-badges-action@v1.7.0
-        with:
-          auth: ${{ secrets.CLOC_GIST_SECRET }}
-          gistID: 5d8f9b1d4b414b7076cf84f4eae089d9
-          filename: cloc.json
-          label: Python 行数
-          message: ${{ env.CLOC }}
-          color: orange
