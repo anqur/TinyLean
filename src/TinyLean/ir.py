@@ -185,9 +185,10 @@ class Renamer:
         return v
 
     def _param(self, p: Param[IR]):
+        typ = self.run(p.type)
         name = Name(p.name.text)
         self.locals[p.name.id] = name.id
-        return Param(name, self.run(p.type), p.is_implicit, p.is_class)
+        return Param(name, typ, p.is_implicit, p.is_class)
 
 
 _rn = lambda v: Renamer().run(v)
@@ -211,7 +212,7 @@ def from_data(d: DataDecl[IR]):
 
 
 def from_ctor(c: CtorDecl[IR], d: DataDecl[IR]):
-    adhoc = {x.name.id: v for x, v in _c(dict[Ref, IR], c.ty_args)}
+    adhoc = {x.name.id: v for x, v in _c(tuple[Ref, IR], c.ty_args)}
     miss = [Param(p.name, p.type, True) for p in d.params if p.name.id not in adhoc]
 
     v = _to(c.params, Ctor(d.name, c.name, [Ref(p.name) for p in c.params]))
@@ -221,7 +222,7 @@ def from_ctor(c: CtorDecl[IR], d: DataDecl[IR]):
     ty = _to(c.params, Data(d.name, ty_args), True)
     ty = _to(miss, ty, True)
 
-    return _rn(v), _rn(ty)
+    return len(miss), _rn(v), _rn(ty)
 
 
 def from_class(c: ClassDecl[IR]):

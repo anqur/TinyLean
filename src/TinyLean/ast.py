@@ -422,9 +422,9 @@ class TypeChecker:
         want = self._inliner().run(typ)
 
         if _can_insert_placeholders(want):
+            holes_len = len(self.holes)
             if new_f := _with_placeholders(n, got, False):
-                # FIXME: No valid tests yet.
-                assert len(self.holes) == holes_len
+                [self.holes.popitem() for _ in range(len(self.holes) - holes_len)]
                 val, got = self.infer(new_f)
 
         if not self._eq(got, want):
@@ -445,8 +445,8 @@ class TypeChecker:
             if isinstance(d, Data):
                 return ir.from_data(d)
             if isinstance(d, Ctor):
-                data_decl = _c(Data, self.globals[d.ty_name.id])
-                return ir.from_ctor(d, data_decl)
+                _, v, ty = ir.from_ctor(d, _c(Data, self.globals[d.ty_name.id]))
+                return v, ty
             if isinstance(d, Field):
                 return ir.from_field(d, _c(Class, self.globals[d.cls_name.id]))
             return ir.from_class(_c(Class, d))
@@ -483,36 +483,38 @@ class TypeChecker:
                 self._exhaust(n.arg.loc, c, data, got)
             return ir.Nomatch(), self._insert_hole(n.loc, False, ir.Type())
         if isinstance(n, Match):
-            arg, arg_ty = self.infer(n.arg)
-            if not isinstance(arg_ty, ir.Data):
-                raise TypeMismatchError("datatype", str(arg_ty), n.arg.loc)
-            data = _c(Data, self.globals[arg_ty.name.id])
-            ctors = {c.name.id: c for c in data.ctors}
-            ty: ir.IR | None = None
-            cases: dict[int, ir.Case] = {}
-            for c in n.cases:
-                ctor = ctors.get(c.ctor.name.id)
-                if not ctor:
-                    raise UnknownCaseError(data.name.text, c.ctor.name.text, c.loc)
-                with ir.dirty_holes(self.holes):
-                    c_ty = self._ctor_return_type(c.loc, ctor, data)
-                    if not self._eq(c_ty, arg_ty):
-                        raise TypeMismatchError(str(arg_ty), str(c_ty), c.loc)
-                if ctor.name.id in cases:
-                    raise DuplicateCaseError(ctor.name.text, c.loc)
-                if len(c.params) != len(ctor.params):
-                    raise CaseParamMismatchError(len(ctor.params), len(c.params), c.loc)
-                ps = [Param(n, p.type, False) for n, p in zip(c.params, ctor.params)]
-                if ty is None:
-                    body, ty = self._infer_with(c.body, *ps)
-                else:
-                    body = self._check_with(c.body, ty, *ps)
-                cases[ctor.name.id] = ir.Case(ctor.name, ps, body)
-            for c in [c for i, c in ctors.items() if i not in cases]:
-                self._exhaust(n.loc, c, data, arg_ty)
-            return ir.Match(arg, cases), ty
+            return self._infer_match(n)
         assert isinstance(n, Type)
         return ir.Type(), ir.Type()
+
+    def _infer_match(self, n: Match):
+        arg, arg_ty = self.infer(n.arg)
+        if not isinstance(arg_ty, ir.Data):
+            raise TypeMismatchError("datatype", str(arg_ty), n.arg.loc)
+        data = _c(Data, self.globals[arg_ty.name.id])
+        ctors = {c.name.id: c for c in data.ctors}
+        ty: ir.IR | None = None
+        cases: dict[int, ir.Case] = {}
+        for c in n.cases:
+            ctor = ctors.get(c.ctor.name.id)
+            if not ctor:
+                raise UnknownCaseError(data.name.text, c.ctor.name.text, c.loc)
+            if ctor.name.id in cases:
+                raise DuplicateCaseError(ctor.name.text, c.loc)
+            c_params, c_ty = self._case_params(c.loc, ctor, data)
+            if not self._eq(c_ty, arg_ty):
+                raise TypeMismatchError(str(arg_ty), str(c_ty), c.loc)
+            if len(c.params) != len(c_params):
+                raise CaseParamMismatchError(len(ctor.params), len(c.params), c.loc)
+            ps = [Param(n, p.type, False) for n, p in zip(c.params, c_params)]
+            if ty is None:
+                body, ty = self._infer_with(c.body, *ps)
+            else:
+                body = self._check_with(c.body, ty, *ps)
+            cases[ctor.name.id] = ir.Case(ctor.name, ps, body)
+        for c in [c for i, c in ctors.items() if i not in cases]:
+            self._exhaust(n.loc, c, data, arg_ty)
+        return ir.Match(arg, cases), ty
 
     def _inliner(self):
         return ir.Inliner(self.holes, self.globals)
@@ -537,8 +539,8 @@ class TypeChecker:
         self.holes[i] = ir.Hole(loc, is_user, self.locals.copy(), ir.Answer(typ))
         return ir.Placeholder(i, is_user)
 
-    def _ctor_return_type(self, loc: int, c: Ctor[ir.IR], d: Data[ir.IR]):
-        _, ty = ir.from_ctor(c, d)
+    def _case_params(self, loc: int, c: Ctor[ir.IR], d: Data[ir.IR]):
+        miss, v, ty = ir.from_ctor(c, d)
         while isinstance(ty, ir.FnType):
             p = ty.param
             x = (
@@ -547,11 +549,22 @@ class TypeChecker:
                 else ir.Ref(p.name)
             )
             ty = self._inliner().run_with(ty.ret, (p.name, x))
-        return ty
+
+            if miss > 0:
+                miss -= 1
+                assert isinstance(v, ir.Fn)
+                v = self._inliner().run_with(v.body, (v.param.name, x))
+
+        params = []
+        while isinstance(v, ir.Fn):
+            params.append(v.param)
+            v = v.body
+
+        return params, ty
 
     def _exhaust(self, loc: int, c: Ctor[ir.IR], d: Data[ir.IR], want: ir.IR):
         with ir.dirty_holes(self.holes):
-            if self._eq(self._ctor_return_type(loc, c, d), want):
+            if self._eq(self._case_params(loc, c, d)[1], want):
                 raise CaseMissError(c.name.text, loc)
 
 
