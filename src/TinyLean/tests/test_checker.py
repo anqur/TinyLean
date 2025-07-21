@@ -426,9 +426,7 @@ class TestTypeChecker(TestCase):
         with self.assertRaises(ast.TypeMismatchError) as e:
             ast.check_string(text)
         want, got, loc = e.exception.args
-        self.assertEqual(
-            "(p: (v: Type) → Type) → (pa: (p nomatch)) → (p nomatch)", want
-        )
+        self.assertEqual("(p: (v: Type) → Type) → (pa: (p nomatch)) → (p nomatch)", want)
         self.assertEqual("(p: (v: Type) → Type) → (pa: (p nomatch)) → (p nomatch)", got)
         self.assertEqual(text.index("refl (a x)"), loc)
 
@@ -449,9 +447,7 @@ class TestTypeChecker(TestCase):
             """
         )
         assert isinstance(f, Def)
-        self.assertEqual(
-            "match v with | A (x: Type) (y: Type) ↦ x | B (x: Type) ↦ x", str(f.body)
-        )
+        self.assertEqual("match v with | A (x: Type) (y: Type) ↦ x | B (x: Type) ↦ x", str(f.body))
         assert isinstance(e, Example)
         assert isinstance(e.body, ir.Type)
 
@@ -641,9 +637,7 @@ class TestTypeChecker(TestCase):
             """
         )
         assert isinstance(add, Def)
-        self.assertEqual(
-            "match n with | Z ↦ m | S (pred: N) ↦ (N.S ((add pred) m))", str(add.body)
-        )
+        self.assertEqual("match n with | Z ↦ m | S (pred: N) ↦ (N.S ((add pred) m))", str(add.body))
         assert isinstance(e, Example)
         self.assertEqual("(N.S (N.S N.Z))", str(e.body))
 

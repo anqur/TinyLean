@@ -172,10 +172,7 @@ class Renamer:
             return Ctor(v.ty_name, v.name, [self.run(x) for x in v.args])
         if isinstance(v, Match):
             arg = self.run(v.arg)
-            cases = {
-                i: Case(c.ctor, [self._param(p) for p in c.params], self.run(c.body))
-                for i, c in v.cases.items()
-            }
+            cases = {i: Case(c.ctor, [self._param(p) for p in c.params], self.run(c.body)) for i, c in v.cases.items()}
             return Match(arg, cases)
         if isinstance(v, Class):
             return Class(v.name, [self.run(x) for x in v.args])
@@ -269,6 +266,7 @@ class NoInstanceError(Exception): ...
 class Inliner:
     holes: OrderedDict[int, Hole]
     globals: dict[int, Decl]
+    locals: dict[int, Param[IR]]
     can_recurse: bool = True
     env: dict[int, IR] = field(default_factory=dict)
 
@@ -297,10 +295,7 @@ class Inliner:
             arg = self.run(v.arg)
             can_recurse = self.can_recurse
             self.can_recurse = False
-            cases = {
-                i: Case(c.ctor, [self._param(p) for p in c.params], self.run(c.body))
-                for i, c in v.cases.items()
-            }
+            cases = {i: Case(c.ctor, [self._param(p) for p in c.params], self.run(c.body)) for i, c in v.cases.items()}
             self.can_recurse = can_recurse
             if not isinstance(arg, Ctor):
                 return Match(arg, cases)
@@ -353,7 +348,7 @@ class Inliner:
         for inst_id in cls.instances:
             i = _c(Instance, self.globals[inst_id])
             with dirty_holes(self.holes):
-                if Converter(self.holes, self.globals).eq(c, i.type):
+                if Converter(self.holes, self.globals, self.locals).eq(c, i.type):
                     return i
         return None
 
@@ -362,6 +357,7 @@ class Inliner:
 class Converter:
     holes: OrderedDict[int, Hole]
     globals: dict[int, Decl]
+    locals: dict[int, Param[IR]]
 
     def eq(self, lhs: IR, rhs: IR):
         match lhs, rhs:
@@ -370,17 +366,21 @@ class Converter:
             case x, Placeholder() as y:
                 return self._solve(y, x)
             case Ref(x), Ref(y):
+                a = self.locals.get(x.id)
+                b = self.locals.get(y.id)
+                if a is not None and b is not None:
+                    return self.eq(a.type, b.type)
                 return x.id == y.id
             case Call(f, x), Call(g, y):
                 return self.eq(f, g) and self.eq(x, y)
             case Fn(p, b), Fn(q, c):
                 env = [(q.name, Ref(p.name))]
-                return self.eq(b, Inliner(self.holes, self.globals).run_with(c, *env))
+                return self.eq(b, Inliner(self.holes, self.globals, self.locals).run_with(c, *env))
             case FnType(p, b), FnType(q, c):
                 if not self.eq(p.type, q.type):
                     return False
                 env = [(q.name, Ref(p.name))]
-                return self.eq(b, Inliner(self.holes, self.globals).run_with(c, *env))
+                return self.eq(b, Inliner(self.holes, self.globals, self.locals).run_with(c, *env))
             case Data(x, xs), Data(y, ys):
                 return x.id == y.id and self._args(xs, ys)
             case Ctor(t, x, xs), Ctor(u, y, ys):

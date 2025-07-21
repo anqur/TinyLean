@@ -25,7 +25,7 @@ jobs:
           pip install --upgrade build check-manifest twine black pytest pytest-cov
           pip install .
       - name: Lint
-        run: black . --check
+        run: black . -l 120 --check
       - name: Build
         run: |
           check-manifest

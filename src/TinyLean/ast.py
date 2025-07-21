@@ -99,17 +99,13 @@ _g.i_param.add_parse_action(lambda r: Param(r[0], r[1], True))
 _g.e_param.add_parse_action(lambda r: Param(r[0], r[1], False))
 _g.c_param.add_parse_action(lambda r: Param(r[0], r[1], True, True))
 _g.fn_type.add_parse_action(lambda l, r: FnType(l, r[0], r[1]))
-_g.fn.add_parse_action(
-    lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1])
-)
+_g.fn.add_parse_action(lambda l, r: reduce(lambda a, n: Fn(l, n, a), reversed(r[0]), r[1]))
 _g.match.add_parse_action(lambda l, r: Match(l, r[0], list(r[1])))
 _g.case.add_parse_action(lambda r: Case(r[0].loc, r[0], r[1], r[2]))
 _g.nomatch.add_parse_action(lambda l, r: Nomatch(l, r[0][0]))
 _g.i_arg.add_parse_action(lambda l, r: (r[1], r[0]))
 _g.e_arg.add_parse_action(lambda l, r: (r[0], False))
-_g.call.add_parse_action(
-    lambda l, r: reduce(lambda a, b: Call(l, a, b[0], b[1]), r[1:], r[0])
-)
+_g.call.add_parse_action(lambda l, r: reduce(lambda a, b: Call(l, a, b[0], b[1]), r[1:], r[0]))
 _g.p_expr.add_parse_action(lambda r: r[0])
 
 _g.return_type.add_parse_action(lambda l, r: r[0] if len(r) else Placeholder(l, False))
@@ -117,13 +113,13 @@ _g.def_.add_parse_action(lambda r: Def(r[0].loc, r[0].name, list(r[1]), r[2], r[
 _g.example.add_parse_action(lambda l, r: Example(l, list(r[0]), r[1], r[2]))
 _g.type_arg.add_parse_action(lambda r: (r[0], r[1]))
 _g.ctor.add_parse_action(lambda r: Ctor(r[0].loc, r[0].name, list(r[1]), list(r[2])))
-_g.data.add_condition(
-    lambda r: r[0].name.text == r[3], message="open and datatype name mismatch"
-).add_parse_action(lambda r: Data(r[0].loc, r[0].name, list(r[1]), list(r[2])))
+_g.data.add_condition(lambda r: r[0].name.text == r[3], message="open and datatype name mismatch").add_parse_action(
+    lambda r: Data(r[0].loc, r[0].name, list(r[1]), list(r[2]))
+)
 _g.c_field.add_parse_action(lambda l, r: Field(l, r[0], r[1]))
-_g.class_.add_condition(
-    lambda r: r[0].name.text == r[3], message="open and class name mismatch"
-).add_parse_action(lambda r: Class(r[0].loc, r[0].name, list(r[1]), list(r[2])))
+_g.class_.add_condition(lambda r: r[0].name.text == r[3], message="open and class name mismatch").add_parse_action(
+    lambda r: Class(r[0].loc, r[0].name, list(r[1]), list(r[2]))
+)
 _g.i_field.add_parse_action(lambda r: (r[0], r[1]))
 _g.inst.add_parse_action(lambda l, r: Instance(l, r[0], list(r[1])))
 
@@ -356,10 +352,7 @@ class TypeChecker:
 
     def _class(self, c: Class[Node]):
         params = self._params(c.params)
-        fs = [
-            Field(f.loc, f.name, self.check(f.type, ir.Type()), c.name)
-            for f in c.fields
-        ]
+        fs = [Field(f.loc, f.name, self.check(f.type, ir.Type()), c.name) for f in c.fields]
         self.globals.update({f.name.id: f for f in fs})
         cls = Class(c.loc, c.name, params, fs)
         self.globals[c.name.id] = cls
@@ -416,7 +409,6 @@ class TypeChecker:
             p = Param(n.param, t.param.type, t.param.is_implicit, t.param.is_class)
             return ir.Fn(p, self._check_with(n.body, ret, p))
 
-        holes_len = len(self.holes)
         val, got = self.infer(n)
         got = self._inliner().run(got)
         want = self._inliner().run(typ)
@@ -517,10 +509,10 @@ class TypeChecker:
         return ir.Match(arg, cases), ty
 
     def _inliner(self):
-        return ir.Inliner(self.holes, self.globals)
+        return ir.Inliner(self.holes, self.globals, self.locals)
 
     def _eq(self, got: ir.IR, want: ir.IR):
-        return ir.Converter(self.holes, self.globals).eq(got, want)
+        return ir.Converter(self.holes, self.globals, self.locals).eq(got, want)
 
     def _check_with(self, n: Node, typ: ir.IR, *ps: Param[ir.IR]):
         self.locals.update({p.name.id: p for p in ps})
@@ -543,11 +535,7 @@ class TypeChecker:
         miss, v, ty = ir.from_ctor(c, d)
         while isinstance(ty, ir.FnType):
             p = ty.param
-            x = (
-                self._insert_hole(loc, False, p.type)
-                if p.is_implicit
-                else ir.Ref(p.name)
-            )
+            x = self._insert_hole(loc, False, p.type) if p.is_implicit else ir.Ref(p.name)
             ty = self._inliner().run_with(ty.ret, (p.name, x))
 
             if miss > 0:

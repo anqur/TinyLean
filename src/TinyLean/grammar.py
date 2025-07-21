@@ -11,13 +11,9 @@ DEF, EXAMPLE, IND, WHERE, OPEN, TYPE, NOMATCH, MATCH, WITH, UNDER, CLASS, INST =
     "def example inductive where open Type nomatch match with _ class instance".split(),
 )
 
-ASSIGN, ARROW, FUN, TO = map(
-    lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split()
-)
+ASSIGN, ARROW, FUN, TO = map(lambda s: Suppress(s[0]) | Suppress(s[1:]), "≔:= →-> λfun ↦=>".split())
 
-LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET, COLON, BAR, NEWLINE = map(
-    Suppress, "(){}[]:|\n"
-)
+LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET, COLON, BAR, NEWLINE = map(Suppress, "(){}[]:|\n")
 INLINE_WHITE = Opt(Suppress(White(" \t\r"))).set_name("inline_whitespace")
 
 forwards = lambda names: map(lambda n: Forward().set_name(n), names.split())
@@ -56,13 +52,9 @@ def_ = (DEF - ref + params + return_type + ASSIGN + expr).set_name("definition")
 example = (EXAMPLE - params + return_type + ASSIGN + expr).set_name("example")
 type_arg = (LPAREN + ref + ASSIGN + expr + RPAREN).set_name("type_arg")
 ctor = (BAR - ref + params + Group(ZeroOrMore(type_arg))).set_name("constructor")
-data = (IND - ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT).set_name(
-    "datatype"
-)
+data = (IND - ref + params + WHERE + Group(ZeroOrMore(ctor)) + OPEN + IDENT).set_name("datatype")
 c_field = (name + COLON + expr).set_name("class_field")
-class_ = (
-    CLASS - ref + params + WHERE + Group(ZeroOrMore(c_field)) + OPEN + IDENT
-).set_name("class")
+class_ = (CLASS - ref + params + WHERE + Group(ZeroOrMore(c_field)) + OPEN + IDENT).set_name("class")
 i_field = (ref + ASSIGN + expr).set_name("instance_field")
 inst = (INST - COLON + expr + WHERE + Group(ZeroOrMore(i_field))).set_name("instance")
 declaration = (def_ | example | data | class_ | inst).set_name("declaration")
